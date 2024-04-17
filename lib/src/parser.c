@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <ctype.h>
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
@@ -2113,6 +2114,98 @@ exit:
   return result;
 }
 
+/** Added by FreddyYJ. */
+
+uint32_t node_value_count=0;
+TSNode node_value_keys[1000];
+char* node_value_values[1000];
+
+char *trim_left(char *str) {
+    while (*str) {
+        if (isspace(*str)) {
+            str++;
+        } else {
+            break;
+        }
+    }
+    return str;
+}
+
+char *trim_right(char *str) {
+    int len = (int)strlen(str) - 1;
+
+    while (len >= 0) {
+        if (isspace(*(str + len))) {
+            len--;
+        } else {
+            break;
+        }
+    }
+    *(str + ++len) = '\0';
+    return str;
+}
+
+char *trim(char *str) {
+    return trim_left(trim_right(str));
+}
+
+char* ts_substr(const char* str,uint32_t start, uint32_t end);
+
+uint8_t value_exist(TSNode node) {
+  for (uint32_t i=0;i<node_value_count;i++) {
+    if (ts_node_eq(node,node_value_keys[i])) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+char* ts_node_find_value(TSNode node) {
+  for (uint32_t i=0;i<node_value_count;i++) {
+    if (ts_node_eq(node,node_value_keys[i])) {
+      return node_value_values[i];
+    }
+  }
+  return NULL;
+}
+
+void ts_add_value(TSNode node,const char* code) {
+  if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
+      strcmp(ts_node_type(node),"string_literal")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    char* value = trim(ts_substr(code,start,end));
+
+    if (!value_exist(node)){
+      node_value_keys[node_value_count]=node;
+      node_value_values[node_value_count]=value;
+      node_value_count++;
+    }
+  }
+  else if (strcmp(ts_node_type(node),"binary_expression")==0) {
+    assert(ts_node_named_child_count(node)==2);
+    // Remove left and right operand to get operator
+    TSNode left = ts_node_named_child(node, 0);
+    uint32_t left_end = ts_node_end_byte(left);
+    TSNode right = ts_node_named_child(node, 1);
+    uint32_t right_start = ts_node_start_byte(right);
+    char* op = trim(ts_substr(code,left_end,right_start));
+
+    if (!value_exist(node)){
+      node_value_keys[node_value_count]=node;
+      node_value_values[node_value_count]=op;
+      node_value_count++;
+    }
+
+    ts_add_value(left,code);
+    ts_add_value(right,code);
+  }
+
+  for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
+    ts_add_value(ts_node_named_child(node,i),code);
+  }
+}
+
 TSTree *ts_parser_parse_string(
   TSParser *self,
   const TSTree *old_tree,
@@ -2130,11 +2223,14 @@ TSTree *ts_parser_parse_string_encoding(
   TSInputEncoding encoding
 ) {
   TSStringInput input = {string, length};
-  return ts_parser_parse(self, old_tree, (TSInput) {
+  TSTree* root=ts_parser_parse(self, old_tree, (TSInput) {
     &input,
     ts_string_input_read,
     encoding,
   });
+
+  ts_add_value(ts_tree_root_node(root),string);
+  return root;
 }
 
 void ts_parser_set_wasm_store(TSParser *self, TSWasmStore *store) {

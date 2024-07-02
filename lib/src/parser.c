@@ -2202,6 +2202,36 @@ void ts_add_value(TSNode node,const char* code) {
     ts_add_value(left,code);
     ts_add_value(right,code);
   }
+  else if (strcmp(ts_node_type(node),"unary_expression")==0) {
+    assert(ts_node_named_child_count(node)==1);
+    // Find this operator is prefix or postfix
+    TSNode child = ts_node_named_child(node, 0);
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+
+    if (start==ts_node_start_byte(child)) {
+      // Postfix
+      if (!value_exist(node)){
+        char* op=trim(ts_substr(code,ts_node_start_byte(child),end));
+        char new_op[10];
+        sprintf(new_op,"p%s",op);
+        node_value_keys[node_value_count]=node;
+        node_value_values[node_value_count]=new_op;
+        node_value_count++;
+      }
+    }
+    else {
+      // Prefix
+      if (!value_exist(node)){
+        char* op=trim(ts_substr(code,start,ts_node_end_byte(child)));
+        node_value_keys[node_value_count]=node;
+        node_value_values[node_value_count]=op;
+        node_value_count++;
+      }
+    }
+
+    ts_add_value(child,code);
+  }
 
   for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
     ts_add_value(ts_node_named_child(node,i),code);

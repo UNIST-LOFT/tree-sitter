@@ -1295,6 +1295,8 @@ typedef enum TSNodeObjectType {
 
   // String Literal
   TSNodeObjectTypeString,
+  // Char Literal
+  TSNodeObjectTypeChar,
 } TSNodeObjectType;
 
 /**

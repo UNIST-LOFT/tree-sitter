@@ -2119,8 +2119,8 @@ exit:
 /** Added by FreddyYJ. */
 
 uint32_t node_value_count=0;
-TSNode node_value_keys[1000];
-char* node_value_values[1000];
+TSNode node_value_keys[10000];
+char* node_value_values[10000];
 
 char *trim_left(char *str) {
     while (*str) {
@@ -2173,7 +2173,8 @@ char* ts_node_find_value(TSNode node) {
 
 void ts_add_value(TSNode node,const char* code) {
   if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
-      strcmp(ts_node_type(node),"string_literal")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
+      strcmp(ts_node_type(node),"string_literal")==0 || strcmp(ts_node_type(node),"field_expression")==0 ||
+      strcmp(ts_node_type(node),"char_literal")) {
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
     char* value = trim(ts_substr(code,start,end));
@@ -2217,6 +2218,20 @@ void ts_add_value(TSNode node,const char* code) {
         sprintf(new_op,"p%s",op);
         node_value_keys[node_value_count]=node;
         node_value_values[node_value_count]=new_op;
+        node_value_count++;
+      }
+    }
+    else if (strcmp(ts_node_type(node),"true")==0) {
+      if (!value_exist(node)) {
+        node_value_keys[node_value_count]=node;
+        node_value_values[node_value_count]="true";
+        node_value_count++;
+      }
+    }
+    else if (strcmp(ts_node_type(node),"false")==0) {
+      if (!value_exist(node)) {
+        node_value_keys[node_value_count]=node;
+        node_value_values[node_value_count]="false";
         node_value_count++;
       }
     }

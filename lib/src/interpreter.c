@@ -1,6 +1,7 @@
 #include "tree_sitter/api.h"
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     char* node_name=ts_node_find_value(node);
@@ -39,7 +40,12 @@ TSNodeObject ts_interpreter_literal(TSNode node, uint64_t var_count, TSNodeObjec
     obj.name=ts_node_find_value(node);
     obj.node=node;
 
-    if (in_str(obj.name,'.')) {
+    if (strcmp(ts_node_type(node),"char_literal")==0) {
+        obj.size=sizeof(char);
+        obj.type=TSNodeObjectTypeChar;
+        obj.value.int64=ts_node_find_value(node)[1];
+    }
+    else if (in_str(obj.name,'.')) {
         // Float/double
         if (in_str(obj.name,'f') || in_str(obj.name,'F')) {
             obj.size=sizeof(float);
@@ -588,6 +594,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                     default:
                         assert(0 && "Unknown type");
                 }
+                break;
 
             default:
                 assert(0 && "Unknown type in equality");
@@ -963,7 +970,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     if (strcmp(ts_node_type(node),"identifier")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
         return ts_interpreter_variable(node,var_count,vars);
     }
-    else if (strcmp(ts_node_type(node),"number_literal")==0) {
+    else if (strcmp(ts_node_type(node),"number_literal")==0 || strcmp(ts_node_type(node),"char_literal")==0) {
         return ts_interpreter_literal(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"unary_expression")==0) {
@@ -978,6 +985,24 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.node=node;
         obj.size=sizeof(char)*(strlen(ts_node_find_value(node))-2); // Remove quotes
         obj.type=TSNodeObjectTypeString;
+        return obj;
+    }
+    else if (strcmp(ts_node_type(node),"true")==0) {
+        TSNodeObject obj;
+        obj.name="true";
+        obj.node=node;
+        obj.size=sizeof(unsigned int); // Remove quotes
+        obj.type=TSNodeObjectTypeUInt;
+        obj.value.uint64=1;
+        return obj;
+    }
+    else if (strcmp(ts_node_type(node),"false")==0) {
+        TSNodeObject obj;
+        obj.name="false";
+        obj.node=node;
+        obj.size=sizeof(unsigned int); // Remove quotes
+        obj.type=TSNodeObjectTypeUInt;
+        obj.value.uint64=0;
         return obj;
     }
     else if (strcmp(ts_node_type(node),"parenthesized_expression")==0 ||

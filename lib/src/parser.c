@@ -2174,7 +2174,7 @@ char* ts_node_find_value(TSNode node) {
 void ts_add_value(TSNode node,const char* code) {
   if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
       strcmp(ts_node_type(node),"string_literal")==0 || strcmp(ts_node_type(node),"field_expression")==0 ||
-      strcmp(ts_node_type(node),"char_literal")) {
+      strcmp(ts_node_type(node),"char_literal")==0) {
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
     char* value = trim(ts_substr(code,start,end));

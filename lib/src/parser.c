@@ -2187,7 +2187,7 @@ void ts_add_value(TSNode node,const char* code) {
     }
   }
   else if (strcmp(ts_node_type(node),"binary_expression")==0) {
-    assert(ts_node_named_child_count(node)==2);
+    ts_assert(ts_node_named_child_count(node)==2);
     // Remove left and right operand to get operator
     TSNode left = ts_node_named_child(node, 0);
     uint32_t left_end = ts_node_end_byte(left);
@@ -2205,7 +2205,7 @@ void ts_add_value(TSNode node,const char* code) {
     ts_add_value(right,code);
   }
   else if (strcmp(ts_node_type(node),"unary_expression")==0) {
-    assert(ts_node_named_child_count(node)==1);
+    ts_assert(ts_node_named_child_count(node)==1);
     // Find this operator is prefix or postfix
     TSNode child = ts_node_named_child(node, 0);
     uint32_t start = ts_node_start_byte(node);

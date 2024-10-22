@@ -1,5 +1,5 @@
 #include "tree_sitter/api.h"
-#include <assert.h>
+#include <./ts_assert.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -11,7 +11,7 @@ TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObje
         }
     }
 
-    assert(0 && "Variable not found");
+    ts_assert(0 && "Variable not found");
 }
 
 int in_str(char* str, char c) {
@@ -74,7 +74,7 @@ TSNodeObject ts_interpreter_literal(TSNode node, uint64_t var_count, TSNodeObjec
             obj.size=sizeof(unsigned long);
         }
         else {
-            assert(0 && "Unknown unsigned type");
+            ts_assert(0 && "Unknown unsigned type");
         }
 
         obj.type=TSNodeObjectTypeUInt;
@@ -119,7 +119,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
         result.value.pointer=&obj;
     }
     else if (strcmp(op,"*")==0) {
-        assert(0 && "Dereference operation not supported");
+        ts_assert(0 && "Dereference operation not supported");
     }
     else if (strcmp(op,"-")==0) {
         result.size=obj.size;
@@ -137,7 +137,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.double64=-obj.value.double64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                ts_assert(0 && "Unknown type");
         }
     }
     else if (strcmp(op,"~")==0) {
@@ -152,7 +152,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=~obj.value.uint64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                ts_assert(0 && "Unknown type");
         }
     }
     else if (strcmp(op,"!")==0) {
@@ -172,7 +172,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=++obj.value.uint64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                ts_assert(0 && "Unknown type");
         }
     }
     else if (strcmp(op,"--")==0) {
@@ -187,7 +187,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=--obj.value.uint64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                ts_assert(0 && "Unknown type");
         }
     }
     else if (strcmp(op,"p++")==0) {
@@ -202,7 +202,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=obj.value.uint64++;
                 break;
             default:
-                assert(0 && "Unknown type");
+                ts_assert(0 && "Unknown type");
         }
     }
     else if (strcmp(op,"p--")==0) {
@@ -217,11 +217,11 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=obj.value.uint64--;
                 break;
             default:
-                assert(0 && "Unknown type");
+                ts_assert(0 && "Unknown type");
         }
     }
     else {
-        assert(0 && "Unknown unary operator");
+        ts_assert(0 && "Unknown unary operator");
     }
 
     return result;
@@ -258,7 +258,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64+obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
             
@@ -277,7 +277,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64+obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -296,12 +296,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64+obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
             
             default:
-                assert(0 && "Unknown type in addition");
+                ts_assert(0 && "Unknown type in addition");
         }
     }
     else if (strcmp(op,"-")==0) {
@@ -321,7 +321,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64-obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
             
@@ -340,7 +340,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64-obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -359,12 +359,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64-obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
             
             default:
-                assert(0 && "Unknown type in subtraction");
+                ts_assert(0 && "Unknown type in subtraction");
         }
     }
     else if (strcmp(op,"*")==0) {
@@ -384,7 +384,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64*obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
             
@@ -403,7 +403,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64*obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -422,12 +422,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64*obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
             
             default:
-                assert(0 && "Unknown type in multiplication");
+                ts_assert(0 && "Unknown type in multiplication");
         }
     }
     else if (strcmp(op,"/")==0) {
@@ -447,7 +447,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64/obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -466,7 +466,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64/obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -485,12 +485,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64/obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in division");
+                ts_assert(0 && "Unknown type in division");
         }
     }
     else if (strcmp(op,"%%")==0) {
@@ -506,7 +506,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.uint64=obj1.value.int64%obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -521,12 +521,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.uint64=obj1.value.uint64%obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in modulo");
+                ts_assert(0 && "Unknown type in modulo");
         }
     }
 
@@ -547,7 +547,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64==obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -563,7 +563,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64==obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -579,7 +579,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64==obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -592,12 +592,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.pointer==NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in equality");
+                ts_assert(0 && "Unknown type in equality");
         }
     }
     else if (strcmp(op,"!=")==0) {
@@ -616,7 +616,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64!=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -632,7 +632,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64!=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -648,7 +648,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64!=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -661,11 +661,11 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.pointer!=NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
 
             default:
-                assert(0 && "Unknown type in inequality");
+                ts_assert(0 && "Unknown type in inequality");
         }
     }
     else if (strcmp(op,"<")==0) {
@@ -684,7 +684,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64<obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -700,7 +700,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64<obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -716,12 +716,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64<obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in less than");
+                ts_assert(0 && "Unknown type in less than");
         }
     }
     else if (strcmp(op,">")==0) {
@@ -740,7 +740,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64>obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
     
@@ -756,7 +756,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                             result.value.int64=obj1.value.uint64>obj2.value.double64;
                             break;
                         default:
-                            assert(0 && "Unknown type");
+                            ts_assert(0 && "Unknown type");
                     }
                     break;
 
@@ -772,12 +772,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                             result.value.int64=obj1.value.double64>obj2.value.double64;
                             break;
                         default:
-                            assert(0 && "Unknown type");
+                            ts_assert(0 && "Unknown type");
                     }
                     break;
 
                 default:
-                    assert(0 && "Unknown type in greater than");
+                    ts_assert(0 && "Unknown type in greater than");
         }
     }
     else if (strcmp(op,"<=")==0) {
@@ -796,7 +796,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64<=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -812,7 +812,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64<=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -828,12 +828,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64<=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in less than or equal");
+                ts_assert(0 && "Unknown type in less than or equal");
         }
     }
     else if (strcmp(op,">=")==0) {
@@ -852,7 +852,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64>=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -868,7 +868,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64>=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
@@ -884,12 +884,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64>=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        ts_assert(0 && "Unknown type");
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in greater than or equal");
+                ts_assert(0 && "Unknown type in greater than or equal");
         }
     }
 
@@ -907,7 +907,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 && obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical and");
+                        ts_assert(0 && "Unknown type in logical and");
                 }
                 break;
             case TSNodeObjectTypeUInt:
@@ -919,11 +919,11 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 && obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical and");
+                        ts_assert(0 && "Unknown type in logical and");
                 }
                 break;
             default:
-                assert(0 && "Unknown type in logical and");
+                ts_assert(0 && "Unknown type in logical and");
         }
     }
     else if (strcmp(op,"||")==0) {
@@ -939,7 +939,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 || obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical or");
+                        ts_assert(0 && "Unknown type in logical or");
                 }
                 break;
             case TSNodeObjectTypeUInt:
@@ -951,16 +951,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 || obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical or");
+                        ts_assert(0 && "Unknown type in logical or");
                 }
                 break;
             default:
-                assert(0 && "Unknown type in logical or");
+                ts_assert(0 && "Unknown type in logical or");
         }
     }
 
     else {
-        assert(0 && "Unknown binary operator");
+        ts_assert(0 && "Unknown binary operator");
     }
 
     return result;
@@ -1011,6 +1011,6 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_simulate(ts_node_named_child(node,0),var_count,vars);
     }
     else {
-        assert(0 && "Unknown node type");
+        ts_assert(0 && "Unknown node type");
     }
 }

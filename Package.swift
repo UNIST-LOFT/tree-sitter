@@ -14,28 +14,12 @@ let package = Package(
     targets: [
         .target(name: "TreeSitter",
                 path: "lib",
-                exclude: [
-                    "binding_rust",
-                    "binding_web",
-                    "node_modules",
-                    "Cargo.toml",
-                    "README.md",
-                    "src/unicode/README.md",
-                    "src/unicode/LICENSE",
-                    "src/unicode/ICU_SHA",
-                    "src/get_changed_ranges.c",
-                    "src/tree_cursor.c",
-                    "src/stack.c",
-                    "src/node.c",
-                    "src/lexer.c",
-                    "src/parser.c",
-                    "src/language.c",
-                    "src/alloc.c",
-                    "src/subtree.c",
-                    "src/tree.c",
-                    "src/query.c"
-                ],
-                sources: ["src/lib.c"]),
+                sources: ["src/lib.c"],
+                cSettings: [
+                        .headerSearchPath("src"),
+                        .define("_POSIX_C_SOURCE", to: "200112L"),
+                        .define("_DEFAULT_SOURCE"),
+                ]),
     ],
     cLanguageStandard: .c11
 )

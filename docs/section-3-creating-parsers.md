@@ -14,7 +14,7 @@ Developing Tree-sitter grammars can have a difficult learning curve, but once yo
 In order to develop a Tree-sitter parser, there are two dependencies that you need to install:
 
 * **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. You'll need Node.js version 6.0 or greater.
-* **A C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
+* **A C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
 
 ### Installation
 
@@ -33,29 +33,19 @@ mkdir tree-sitter-${YOUR_LANGUAGE_NAME}
 cd tree-sitter-${YOUR_LANGUAGE_NAME}
 ```
 
-You can use the `npm` command line tool to create a `package.json` file that describes your project, and allows your parser to be used from Node.js.
+You can use the `tree-sitter` CLI tool to set up your project, and allows your parser to be used from multiple languages.
 
 ```sh
 # This will prompt you for input
-npm init
-
-# This installs a small module that lets your parser be used from Node
-npm install --save nan
-
-# This installs the Tree-sitter CLI itself
-npm install --save-dev tree-sitter-cli
+tree-sitter init
 ```
 
-The last command will install the CLI into the `node_modules` folder in your working directory. An executable program called `tree-sitter` will be created inside of `node_modules/.bin/`. You may want to follow the Node.js convention of adding that folder to your `PATH` so that you can easily run this program when working in this directory.
-
-```sh
-# In your shell profile script
-export PATH=$PATH:./node_modules/.bin
-```
-
-Once you have the CLI installed, create a file called `grammar.js` with the following contents:
+Once you have installed the CLI and run through the `init` command's prompts, a file called `grammar.js` should exist with the following contents:
 
 ```js
+/// <reference types="tree-sitter-cli/dsl" />
+// @ts-check
+
 module.exports = grammar({
   name: 'YOUR_LANGUAGE_NAME',
 
@@ -66,7 +56,7 @@ module.exports = grammar({
 });
 ```
 
-Then run the following command:
+Now, run the following command:
 
 ```sh
 tree-sitter generate
@@ -99,6 +89,102 @@ You now have a working parser.
 ## Tool Overview
 
 Let's go over all of the functionality of the `tree-sitter` command line tool.
+
+### Command: `init`
+
+The first command you will likely run is the `init` command. This command sets up an empty repository with everything you need to get going with a grammar repository.
+It only has one optional argument, `--update`, which will update outdated generated files, if needed.
+
+The main file of interest for users to configure is `tree-sitter.json`, which tells the CLI information about your grammar, such as the queries.
+
+#### Structure of `tree-sitter.json`
+
+##### The `grammars` field
+
+This field is an array of objects, you typically only need one object in this array, unless your repo has multiple grammars (e.g. like `Typescript` and `TSX`)
+
+###### Basics
+
+These keys specify basic information about the parser:
+
+* `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](https://macromates.com/manual/en/language_grammars) and by the [Linguist](https://github.com/github/linguist) library.
+
+* `path` - A relative path from the directory containing `tree-sitter.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `tree-sitter.json`), and this very rarely needs to be overridden.
+
+* `external-files` - A list of relative paths from the root dir of a
+parser to files that should be checked for modifications during recompilation.
+This is useful during development to have changes to other files besides scanner.c
+be picked up by the cli.
+
+###### Language Detection
+
+These keys help to decide whether the language applies to a given file:
+
+* `file-types` - An array of filename suffix strings. The grammar will be used for files whose names end with one of these suffixes. Note that the suffix may match an *entire* filename.
+
+* `first-line-regex` - A regex pattern that will be tested against the first line of a file in order to determine whether this language applies to the file. If present, this regex will be used for any file whose language does not match any grammar's `file-types`.
+
+* `content-regex` - A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file using the above two criteria. If the regex matches, this grammar will be preferred over another grammar with no `content-regex`. If the regex does not match, a grammar with no `content-regex` will be preferred over this one.
+
+* `injection-regex` - A regex pattern that will be tested against a *language name* in order to determine whether this language should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection).
+
+###### Query Paths
+
+These keys specify relative paths from the directory containing `tree-sitter.json` to the files that control syntax highlighting:
+
+* `highlights` - Path to a *highlight query*. Default: `queries/highlights.scm`
+* `locals` - Path to a *local variable query*. Default: `queries/locals.scm`.
+* `injections` - Path to an *injection query*. Default: `queries/injections.scm`.
+
+The behaviors of these three files are described in the next section.
+
+##### The `metadata` field
+
+This field contains information that tree-sitter will use to populate relevant bindings' files, especially their versions. A future
+`bump-version` and `publish` subcommand will leverage this version information as well. Typically, this will all be set up when you
+run `tree-sitter init`, but you are welcome to update it as you see fit.
+
+* `version` (required) - The current version of your grammar, which should follow [semver](https://semver.org)
+* `license` - The license of your grammar, which should be a valid [SPDX license](https://spdx.org/licenses)
+* `description` - The brief description of your grammar
+* `authors` (required) - An array of objects that contain a `name` field, and optionally an `email` and `url` field. Each field is a string
+* `links` - An object that contains a `repository` field, and optionally a `homepage` field. Each field is a string
+* `namespace` - The namespace for the `Java` and `Kotlin` bindings, defaults to `io.github.tree-sitter` if not provided
+
+##### The `bindings` field
+
+This field controls what bindings are generated when the `init` command is run. Each key is a language name, and the value is a boolean.
+
+* `c` (default: `true`)
+* `go` (default: `true`)
+* `java` (default: `false`)
+* `kotlin` (default: `false`)
+* `node` (default: `true`)
+* `python` (default: `true`)
+* `rust` (default: `true`)
+* `swift` (default: `false`)
+
+### Command: `version`
+
+The `version` command prints the version of the `tree-sitter` CLI tool that you have installed.
+
+```sh
+tree-sitter version 1.0.0
+```
+
+The only argument is the version itself, which is the first positional argument.
+This will update the version in several files, if they exist:
+
+* tree-sitter.json
+* Cargo.toml
+* package.json
+* Makefile
+* CMakeLists.txt
+* pyproject.toml
+
+As a grammar author, you should keep the version of your grammar in sync across
+different bindings. However, doing so manually is error-prone and tedious, so
+this command takes care of the burden.
 
 ### Command: `generate`
 
@@ -152,7 +238,9 @@ If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will 
 
 The `build` command compiles your parser into a dynamically-loadable library, either as a shared object (`.so`, `.dylib`, or `.dll`) or as a WASM module.
 
-You can specify whether to compile it as a wasm module with the `--wasm`/`-w` flag, and you can opt in to use docker or podman to supply emscripten with the `--docker`/`-d` flag. This removes the need to install emscripten on your machine locally.
+You can change the compiler executable via the `CC` environment variable and add extra flags via `CFLAGS`. For macOS or iOS, you can set `MACOSX_DEPLOYMENT_TARGET` or `IPHONEOS_DEPLOYMENT_TARGET` respectively to define the minimum supported version.
+
+You can specify whether to compile it as a wasm module with the `--wasm`/`-w` flag, and you can opt to use docker or podman to supply emscripten with the `--docker`/`-d` flag. This removes the need to install emscripten on your machine locally.
 
 You can specify where to output the shared object file (native or WASM) with the `--output`/`-o` flag, which accepts either an absolute path or relative path. Note that if you don't supply this flag, the CLI will attempt to figure out what the language name is based on the parent directory (so building in `tree-sitter-javascript` will resolve to `javascript`) to use for the output file. If it can't figure it out, it will default to `parser`, thus generating `parser.so` or `parser.wasm` in the current working directory.
 
@@ -249,12 +337,12 @@ A couple of attributes also take in a parameter, which require the use of parent
 
 The following attributes are available:
 
-- `:skip` — This attribute will skip the test when running `tree-sitter test`.
+* `:skip` — This attribute will skip the test when running `tree-sitter test`.
   This is useful when you want to temporarily disable running a test without deleting it.
-- `:error` — This attribute will assert that the parse tree contains an error. It's useful to just validate that a certain input is invalid without displaying the whole parse tree, as such you should omit the parse tree below the `---` line.
-- `:fail-fast` — This attribute will stop the testing additional tests if the test marked with this attribute fails.
-- `:language(LANG)` — This attribute will run the tests using the parser for the specified language. This is useful for multi-parser repos, such as XML and DTD, or Typescript and TSX. The default parser will be the first entry in the `tree-sitter` field in the root `package.json`, so having a way to pick a second or even third parser is useful.
-- `:platform(PLATFORM)` — This attribute specifies the platform on which the test should run. It is useful to test platform-specific behavior (e.g. Windows newlines are different from Unix). This attribute must match up with Rust's [`std::env::consts::OS`](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+* `:error` — This attribute will assert that the parse tree contains an error. It's useful to just validate that a certain input is invalid without displaying the whole parse tree, as such you should omit the parse tree below the `---` line.
+* `:fail-fast` — This attribute will stop the testing additional tests if the test marked with this attribute fails.
+* `:language(LANG)` — This attribute will run the tests using the parser for the specified language. This is useful for multi-parser repos, such as XML and DTD, or Typescript and TSX. The default parser used will always be the first entry in the `grammars` field in the `tree-sitter.json` config file, so having a way to pick a second or even third parser is useful.
+* `:platform(PLATFORM)` — This attribute specifies the platform on which the test should run. It is useful to test platform-specific behavior (e.g. Windows newlines are different from Unix). This attribute must match up with Rust's [`std::env::consts::OS`](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
 
 Examples using attributes:
 
@@ -324,7 +412,7 @@ You can run your parser on an arbitrary file using `tree-sitter parse`. This wil
           (int_literal [1, 9] - [1, 10]))))))
 ```
 
-You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. Additionally, the `--stat` flag prints out aggregated parse success/failure information for all processed files. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
+You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. Passing the `--cst` flag will output a pretty-printed CST instead of the normal S-expression representation. You can also prevent the syntax trees from being printed using the `--quiet` flag. Additionally, the `--stat` flag prints out aggregated parse success/failure information for all processed files. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
 
 ```sh
 tree-sitter parse 'examples/**/*.go' --quiet --stat
@@ -584,6 +672,10 @@ Possible resolutions:
   4:  Add a conflict for these rules: `binary_expression` `unary_expression`
 ```
 
+Note: The • character in the error message indicates where exactly during
+parsing the conflict occurs, or in other words, where the parser is encountering
+ambiguity.
+
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function [described above](#the-grammar-dsl) comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
 
 ```js
@@ -757,14 +849,7 @@ grammar({
 });
 ```
 
-Then, add another C or C++ source file to your project. Currently, its path must be `src/scanner.c` or `src/scanner.cc` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js and uncomment the appropriate block in your `bindings/rust/build.rs` file so that it will be included in your Rust crate.
-
-> **Note**
->
-> C++ scanners are now deprecated and will be removed in the near future.
-> While it is currently possible to write an external scanner in C++, it can be difficult
-> to get working cross-platform and introduces extra requirements; therefore it
-> is *greatly* preferred to use C.
+Then, add another C source file to your project. Currently, its path must be `src/scanner.c` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js and uncomment the appropriate block in your `bindings/rust/build.rs` file so that it will be included in your Rust crate.
 
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 
@@ -780,7 +865,7 @@ enum TokenType {
 }
 ```
 
-Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*. These functions must all use [C linkage][c-linkage], so if you're writing the scanner in C++, you need to declare them with the `extern "C"` qualifier.
+Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*.
 
 #### Create
 
@@ -853,6 +938,7 @@ This function is responsible for recognizing external tokens. It should return `
 * **`uint32_t (*get_column)(TSLexer *)`** - A function for querying the current column position of the lexer. It returns the number of codepoints since the start of the current line. The codepoint position is recalculated on every call to this function by reading from the start of the line.
 * **`bool (*is_at_included_range_start)(const TSLexer *)`** - A function for checking whether the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), the scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
 * **`bool (*eof)(const TSLexer *)`** - A function for determining whether the lexer is at the end of the file. The value of `lookahead` will be `0` at the end of a file, but this function should be used instead of checking for that value because the `0` or "NUL" value is also a valid character that could be present in the file being parsed.
+* **`void (*log)(const TSLexer *, const char * format, ...)`** - A `printf`-like function for logging. The log is viewable through e.g. `tree-sitter parse --debug` or the browser's console after checking the `log` option in the [Playground](./playground).
 
 The third argument to the `scan` function is an array of booleans that indicates which of external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
 
@@ -991,11 +1077,9 @@ Be very careful when emitting zero-width tokens from your external scanner, and 
 [antlr]: https://www.antlr.org
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [bison]: https://en.wikipedia.org/wiki/GNU_bison
-[c-linkage]: https://en.cppreference.com/w/cpp/language/language_linkage
 [cargo]: https://doc.rust-lang.org/cargo/getting-started/installation.html
 [crate]: https://crates.io/crates/tree-sitter-cli
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
-[dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
 [ecmascript-spec]: https://262.ecma-international.org/6.0/
 [ejs]: https://ejs.co
@@ -1011,7 +1095,6 @@ Be very careful when emitting zero-width tokens from your external scanner, and 
 [multi-language-section]: ./using-parsers#multi-language-documents
 [named-vs-anonymous-nodes-section]: ./using-parsers#named-vs-anonymous-nodes
 [field-names-section]: ./using-parsers#node-field-names
-[nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
 [static-node-types]: ./using-parsers#static-node-types

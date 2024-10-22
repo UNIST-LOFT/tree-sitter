@@ -1,13 +1,14 @@
 use std::{fs, path::Path};
 
-use ansi_term::Colour;
+use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
 use tree_sitter_loader::{Config, Loader};
 
 use super::{
-    query_testing::{parse_position_comments, Assertion},
+    query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
+    test::paint,
     util,
 };
 
@@ -47,9 +48,10 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
+    use_color: bool,
 ) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(loader, loader_config, highlighter, directory, 2)
+    test_highlights_indented(loader, loader_config, highlighter, directory, use_color, 2)
 }
 
 fn test_highlights_indented(
@@ -57,6 +59,7 @@ fn test_highlights_indented(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
+    use_color: bool,
     indent_level: usize,
 ) -> Result<()> {
     let mut failed = false;
@@ -77,6 +80,7 @@ fn test_highlights_indented(
                 loader_config,
                 highlighter,
                 &test_file_path,
+                use_color,
                 indent_level + 1,
             )
             .is_err()
@@ -104,13 +108,19 @@ fn test_highlights_indented(
                 Ok(assertion_count) => {
                     println!(
                         "✓ {} ({assertion_count} assertions)",
-                        Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
+                        paint(
+                            use_color.then_some(AnsiColor::Green),
+                            test_file_name.to_string_lossy().as_ref()
+                        ),
                     );
                 }
                 Err(e) => {
                     println!(
                         "✗ {}",
-                        Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
+                        paint(
+                            use_color.then_some(AnsiColor::Red),
+                            test_file_name.to_string_lossy().as_ref()
+                        )
                     );
                     println!(
                         "{indent:indent_level$}  {e}",
@@ -131,7 +141,7 @@ fn test_highlights_indented(
 }
 pub fn iterate_assertions(
     assertions: &[Assertion],
-    highlights: &[(Point, Point, Highlight)],
+    highlights: &[(Utf8Point, Utf8Point, Highlight)],
     highlight_names: &[String],
 ) -> Result<usize> {
     // Iterate through all of the highlighting assertions, checking each one against the
@@ -214,7 +224,7 @@ pub fn get_highlight_positions(
     highlighter: &mut Highlighter,
     highlight_config: &HighlightConfiguration,
     source: &[u8],
-) -> Result<Vec<(Point, Point, Highlight)>> {
+) -> Result<Vec<(Utf8Point, Utf8Point, Highlight)>> {
     let mut row = 0;
     let mut column = 0;
     let mut byte_offset = 0;
@@ -251,7 +261,10 @@ pub fn get_highlight_positions(
                     }
                 }
                 if let Some(highlight) = highlight_stack.last() {
-                    result.push((start_position, Point::new(row, column), *highlight));
+                    let utf8_start_position = to_utf8_point(start_position, source.as_bytes());
+                    let utf8_end_position =
+                        to_utf8_point(Point::new(row, column), source.as_bytes());
+                    result.push((utf8_start_position, utf8_end_position, *highlight));
                 }
             }
         }

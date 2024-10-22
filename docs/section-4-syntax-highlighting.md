@@ -14,10 +14,10 @@ This document explains how the Tree-sitter syntax highlighting system works, usi
 All of the files needed to highlight a given language are normally included in the same git repository as the Tree-sitter grammar for that language (for example, [`tree-sitter-javascript`](https://github.com/tree-sitter/tree-sitter-javascript), [`tree-sitter-ruby`](https://github.com/tree-sitter/tree-sitter-ruby)). In order to run syntax highlighting from the command-line, three types of files are needed:
 
 1. Per-user configuration in `~/.config/tree-sitter/config.json`
-2. Language configuration in grammar repositories' `package.json` files.
+2. Language configuration in grammar repositories' `tree-sitter.json` files.
 3. Tree queries in the grammars repositories' `queries` folders.
 
-For an example of the language-specific files, see the [`package.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/package.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
+For an example of the language-specific files, see the [`tree-sitter.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/tree-sitter.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
 
 ## Per-user Configuration
 
@@ -58,6 +58,39 @@ The Tree-sitter highlighting system works by annotating ranges of source code wi
 
 In your config file, the `"theme"` value is an object whose keys are dot-separated highlight names like `function.builtin` or `keyword`, and whose values are JSON expressions that represent text styling parameters.
 
+### Parse Theme
+
+The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst` option is used. You can control which colors are used for various parts of the tree in your configuration file. Note that omitting a field will cause the relevant text to be rendered with its default color.
+
+```json5
+{
+  "parse-theme": {
+    // The color of node kinds
+    "node-kind": [20, 20, 20],
+    // The color of text associated with a node
+    "node-text": [255, 255, 255],
+    // The color of node fields
+    "field": [42, 42, 42],
+    // The color of the range information for unnamed nodes
+    "row-color": [255, 255, 255],
+    // The color of the range information for named nodes
+    "row-color-named": [255, 130, 0],
+    // The color of extra nodes
+    "extra": [255, 0, 255],
+    // The color of ERROR nodes
+    "error": [255, 0, 0],
+    // The color of MISSING nodes and their associated text
+    "missing": [153, 75, 0],
+    // The color of newline characters
+    "line-feed": [150, 150, 150],
+    // The color of backtick characters
+    "backtick": [0, 200, 0],
+    // The color of literals
+    "literal": [0, 0, 200],
+  }
+}
+```
+
 #### Highlight Names
 
 A theme can contain multiple keys that share a common subsequence. Examples:
@@ -82,7 +115,7 @@ Styling values can be any of the following:
 
 ## Language Configuration
 
-The `package.json` file is used by package managers like `npm`. Within this file, the Tree-sitter CLI looks for data nested under the top-level `"tree-sitter"` key. This key is expected to contain an array of objects with the following keys:
+The `tree-sitter.json` file is used by the Tree-sitter CLI. Within this file, the CLI looks for data nested under the top-level `"grammars"` key. This key is expected to contain an array of objects with the following keys:
 
 ### Basics
 
@@ -90,7 +123,7 @@ These keys specify basic information about the parser:
 
 * `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](https://macromates.com/manual/en/language_grammars) and by the [Linguist](https://github.com/github/linguist) library.
 
-* `path` (optional) - A relative path from the directory containing `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
+* `path` (optional) - A relative path from the directory containing `tree-sitter.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `tree-sitter.json`), and this very rarely needs to be overridden.
 
 * `external-files` (optional) - A list of relative paths from the root dir of a
 parser to files that should be checked for modifications during recompilation.
@@ -111,7 +144,7 @@ These keys help to decide whether the language applies to a given file:
 
 ### Query Paths
 
-These keys specify relative paths from the directory containing `package.json` to the files that control syntax highlighting:
+These keys specify relative paths from the directory containing `tree-sitter.json` to the files that control syntax highlighting:
 
 * `highlights` - Path to a *highlight query*. Default: `queries/highlights.scm`
 * `locals` - Path to a *local variable query*. Default: `queries/locals.scm`.
@@ -445,7 +478,7 @@ var abc = function(d) {
   }
 
   baz();
-  ^ !variable
+  // <- !variable
 };
 ```
 

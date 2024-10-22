@@ -1,4 +1,4 @@
-use tree_sitter::Parser;
+use tree_sitter::{self, Parser};
 
 use super::helpers::fixtures::get_language;
 
@@ -62,4 +62,36 @@ fn test_lookahead_iterator_modifiable_only_by_mut() {
 
     let mut names = lookahead.iter_names();
     let _ = names.next();
+}
+
+#[test]
+fn test_symbol_metadata_checks() {
+    let language = get_language("rust");
+    for i in 0..language.node_kind_count() {
+        let sym = i as u16;
+        let name = language.node_kind_for_id(sym).unwrap();
+        match name {
+            "_type"
+            | "_expression"
+            | "_pattern"
+            | "_literal"
+            | "_literal_pattern"
+            | "_declaration_statement" => assert!(language.node_kind_is_supertype(sym)),
+
+            "_raw_string_literal_start"
+            | "_raw_string_literal_end"
+            | "_line_doc_comment"
+            | "_error_sentinel" => assert!(!language.node_kind_is_supertype(sym)),
+
+            "enum_item" | "struct_item" | "type_item" => {
+                assert!(language.node_kind_is_named(sym));
+            }
+
+            "=>" | "[" | "]" | "(" | ")" | "{" | "}" => {
+                assert!(language.node_kind_is_visible(sym));
+            }
+
+            _ => {}
+        }
+    }
 }

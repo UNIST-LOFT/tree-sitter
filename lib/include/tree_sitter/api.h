@@ -7,13 +7,13 @@
 #endif
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /****************************/
 /* Section - ABI Versioning */
@@ -50,12 +50,14 @@ typedef struct TSLookaheadIterator TSLookaheadIterator;
 
 typedef enum TSInputEncoding {
   TSInputEncodingUTF8,
-  TSInputEncodingUTF16,
+  TSInputEncodingUTF16LE,
+  TSInputEncodingUTF16BE,
 } TSInputEncoding;
 
 typedef enum TSSymbolType {
   TSSymbolTypeRegular,
   TSSymbolTypeAnonymous,
+  TSSymbolTypeSupertype,
   TSSymbolTypeAuxiliary,
 } TSSymbolType;
 
@@ -554,9 +556,21 @@ TSStateId ts_node_next_parse_state(TSNode self);
 TSNode ts_node_parent(TSNode self);
 
 /**
- * Get the node's child that contains `descendant`.
+ * @deprecated use [`ts_node_contains_descendant`] instead, this will be removed in 0.25
+ *
+ * Get the node's child containing `descendant`. This will not return
+ * the descendant if it is a direct child of `self`, for that use
+ * `ts_node_contains_descendant`.
  */
 TSNode ts_node_child_containing_descendant(TSNode self, TSNode descendant);
+
+/**
+ * Get the node that contains `descendant`.
+ *
+ * Note that this can return `descendant` itself, unlike the deprecated function
+ * [`ts_node_child_containing_descendant`].
+ */
+TSNode ts_node_child_with_descendant(TSNode self, TSNode descendant);
 
 /**
  * Get the node's child at the given index, where zero represents the first
@@ -569,6 +583,12 @@ TSNode ts_node_child(TSNode self, uint32_t child_index);
  * the first child. Returns NULL, if no field is found.
  */
 const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index);
+
+/**
+ * Get the field name for node's named child at the given index, where zero
+ * represents the first named child. Returns NULL, if no field is found.
+ */
+const char *ts_node_field_name_for_named_child(TSNode self, uint32_t named_child_index);
 
 /**
  * Get the node's number of children.
@@ -700,7 +720,8 @@ TSTreeCursor ts_tree_cursor_new(TSNode node);
 void ts_tree_cursor_delete(TSTreeCursor *self);
 
 /**
- * Re-initialize a tree cursor to start at a different node.
+ * Re-initialize a tree cursor to start at the original node that the cursor was
+ * constructed with.
  */
 void ts_tree_cursor_reset(TSTreeCursor *self, TSNode node);
 
@@ -857,6 +878,14 @@ uint32_t ts_query_string_count(const TSQuery *self);
 uint32_t ts_query_start_byte_for_pattern(const TSQuery *self, uint32_t pattern_index);
 
 /**
+ * Get the byte offset where the given pattern ends in the query's source.
+ *
+ * This can be useful when combining queries by concatenating their source
+ * code strings.
+ */
+uint32_t ts_query_end_byte_for_pattern(const TSQuery *self, uint32_t pattern_index);
+
+/**
  * Get all of the predicates for the given pattern in the query.
  *
  * The predicates are represented as a single array of steps. There are three
@@ -991,6 +1020,22 @@ void ts_query_cursor_exec(TSQueryCursor *self, const TSQuery *query, TSNode node
 bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *self);
 uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self);
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit);
+
+/**
+ * Set the maximum duration in microseconds that query execution should be allowed to
+ * take before halting.
+ *
+ * If query execution takes longer than this, it will halt early, returning NULL.
+ * See [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] for more information.
+ */
+void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_micros);
+
+/**
+ * Get the duration in microseconds that query execution is allowed to take.
+ *
+ * This is set via [`ts_query_cursor_set_timeout_micros`].
+ */
+uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self);
 
 /**
  * Set the range of bytes or (row, column) positions in which the query

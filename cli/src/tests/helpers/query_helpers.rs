@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, fmt::Write, ops::Range};
 
 use rand::prelude::Rng;
+use streaming_iterator::{IntoStreamingIterator, StreamingIterator};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, Tree, TreeCursor,
 };
@@ -272,13 +273,13 @@ impl std::fmt::Display for Pattern {
     }
 }
 
-impl<'a, 'tree> PartialOrd for Match<'a, 'tree> {
+impl PartialOrd for Match<'_, '_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a, 'tree> Ord for Match<'a, 'tree> {
+impl Ord for Match<'_, '_> {
     // Tree-sitter returns matches in the order that they terminate
     // during a depth-first walk of the tree. If multiple matches
     // terminate on the same node, those matches are produced in the
@@ -324,39 +325,39 @@ pub fn assert_query_matches(
 }
 
 pub fn collect_matches<'a>(
-    matches: impl Iterator<Item = QueryMatch<'a, 'a>>,
+    mut matches: impl StreamingIterator<Item = QueryMatch<'a, 'a>>,
     query: &'a Query,
     source: &'a str,
 ) -> Vec<(usize, Vec<(&'a str, &'a str)>)> {
-    matches
-        .map(|m| {
-            (
-                m.pattern_index,
-                format_captures(m.captures.iter().copied(), query, source),
-            )
-        })
-        .collect()
+    let mut result = Vec::new();
+    while let Some(m) = matches.next() {
+        result.push((
+            m.pattern_index,
+            format_captures(m.captures.iter().into_streaming_iter_ref(), query, source),
+        ));
+    }
+    result
 }
 
 pub fn collect_captures<'a>(
-    captures: impl Iterator<Item = (QueryMatch<'a, 'a>, usize)>,
+    captures: impl StreamingIterator<Item = (QueryMatch<'a, 'a>, usize)>,
     query: &'a Query,
     source: &'a str,
 ) -> Vec<(&'a str, &'a str)> {
-    format_captures(captures.map(|(m, i)| m.captures[i]), query, source)
+    format_captures(captures.map(|(m, i)| m.captures[*i]), query, source)
 }
 
 fn format_captures<'a>(
-    captures: impl Iterator<Item = QueryCapture<'a>>,
+    mut captures: impl StreamingIterator<Item = QueryCapture<'a>>,
     query: &'a Query,
     source: &'a str,
 ) -> Vec<(&'a str, &'a str)> {
-    captures
-        .map(|capture| {
-            (
-                query.capture_names()[capture.index as usize],
-                capture.node.utf8_text(source.as_bytes()).unwrap(),
-            )
-        })
-        .collect()
+    let mut result = Vec::new();
+    while let Some(capture) = captures.next() {
+        result.push((
+            query.capture_names()[capture.index as usize],
+            capture.node.utf8_text(source.as_bytes()).unwrap(),
+        ));
+    }
+    result
 }

@@ -1,5 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
+use std::ops::Range;
+#[cfg(feature = "tree-sitter-highlight")]
+use std::sync::Mutex;
 use std::{
     collections::HashMap,
     env,
@@ -7,23 +11,37 @@ use std::{
     fs,
     io::{BufRead, BufReader},
     mem,
-    ops::Range,
     path::{Path, PathBuf},
     process::Command,
-    sync::Mutex,
     time::SystemTime,
 };
 
-use anyhow::{anyhow, Context, Error, Result};
-use fs4::FileExt;
+#[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
+use anyhow::Error;
+use anyhow::{anyhow, Context, Result};
+use fs4::fs_std::FileExt;
 use indoc::indoc;
+use lazy_static::lazy_static;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
+use path_slash::PathBufExt as _;
 use regex::{Regex, RegexBuilder};
+use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize};
-use tree_sitter::{Language, QueryError, QueryErrorKind};
+use tree_sitter::Language;
+#[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
+use tree_sitter::QueryError;
+#[cfg(feature = "tree-sitter-highlight")]
+use tree_sitter::QueryErrorKind;
+#[cfg(feature = "tree-sitter-highlight")]
 use tree_sitter_highlight::HighlightConfiguration;
+#[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
+use url::Url;
+
+lazy_static! {
+    static ref GRAMMAR_NAME_REGEX: Regex = Regex::new(r#""name":\s*"(.*?)""#).unwrap();
+}
 
 pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
@@ -35,6 +53,197 @@ pub struct Config {
         deserialize_with = "deserialize_parser_directories"
     )]
     pub parser_directories: Vec<PathBuf>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(untagged)]
+pub enum PathsJSON {
+    #[default]
+    Empty,
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl PathsJSON {
+    fn into_vec(self) -> Option<Vec<String>> {
+        match self {
+            Self::Empty => None,
+            Self::Single(s) => Some(vec![s]),
+            Self::Multiple(s) => Some(s),
+        }
+    }
+
+    const fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum PackageJSONAuthor {
+    String(String),
+    Object {
+        name: String,
+        email: Option<String>,
+        url: Option<String>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum PackageJSONRepository {
+    String(String),
+    Object { url: String },
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PackageJSON {
+    pub name: String,
+    pub version: Version,
+    pub description: Option<String>,
+    pub author: Option<PackageJSONAuthor>,
+    pub maintainers: Option<Vec<PackageJSONAuthor>>,
+    pub license: Option<String>,
+    pub repository: Option<PackageJSONRepository>,
+    #[serde(default)]
+    #[serde(rename = "tree-sitter", skip_serializing_if = "Option::is_none")]
+    pub tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
+}
+
+fn default_path() -> PathBuf {
+    PathBuf::from(".")
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct LanguageConfigurationJSON {
+    #[serde(default = "default_path")]
+    pub path: PathBuf,
+    pub scope: Option<String>,
+    pub file_types: Option<Vec<String>>,
+    pub content_regex: Option<String>,
+    pub first_line_regex: Option<String>,
+    pub injection_regex: Option<String>,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub highlights: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub injections: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub locals: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub tags: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub external_files: PathsJSON,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct TreeSitterJSON {
+    pub grammars: Vec<Grammar>,
+    pub metadata: Metadata,
+    #[serde(default)]
+    pub bindings: Bindings,
+}
+
+impl TreeSitterJSON {
+    #[must_use]
+    pub fn from_file(path: &Path) -> Option<Self> {
+        serde_json::from_str(&fs::read_to_string(path.join("tree-sitter.json")).ok()?).ok()
+    }
+
+    #[must_use]
+    pub fn has_multiple_language_configs(&self) -> bool {
+        self.grammars.len() > 1
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Grammar {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camelcase: Option<String>,
+    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub external_files: PathsJSON,
+    pub file_types: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub highlights: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub injections: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub locals: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub tags: PathsJSON,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub injection_regex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_line_regex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_regex: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Metadata {
+    pub version: Version,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authors: Option<Vec<Author>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub links: Option<Links>,
+    #[serde(skip)]
+    pub namespace: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Author {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Links {
+    pub repository: Url,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub homepage: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
+pub struct Bindings {
+    pub c: bool,
+    pub go: bool,
+    #[serde(skip)]
+    pub java: bool,
+    #[serde(skip)]
+    pub kotlin: bool,
+    pub node: bool,
+    pub python: bool,
+    pub rust: bool,
+    pub swift: bool,
+}
+
+impl Default for Bindings {
+    fn default() -> Self {
+        Self {
+            c: true,
+            go: true,
+            java: false,
+            kotlin: false,
+            node: true,
+            python: true,
+            rust: true,
+            swift: true,
+        }
+    }
 }
 
 // Replace `~` or `$HOME` with home path string.
@@ -83,6 +292,7 @@ impl Config {
 }
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
+const BUILD_HOST: &str = env!("BUILD_HOST");
 
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
@@ -97,9 +307,13 @@ pub struct LanguageConfiguration<'a> {
     pub tags_filenames: Option<Vec<String>>,
     pub language_name: String,
     language_id: usize,
+    #[cfg(feature = "tree-sitter-highlight")]
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
+    #[cfg(feature = "tree-sitter-tags")]
     tags_config: OnceCell<Option<TagsConfiguration>>,
+    #[cfg(feature = "tree-sitter-highlight")]
     highlight_names: &'a Mutex<Vec<String>>,
+    #[cfg(feature = "tree-sitter-highlight")]
     use_all_highlight_names: bool,
 }
 
@@ -110,9 +324,13 @@ pub struct Loader {
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
     language_configuration_in_current_path: Option<usize>,
     language_configuration_ids_by_first_line_regex: HashMap<String, Vec<usize>>,
+    #[cfg(feature = "tree-sitter-highlight")]
     highlight_names: Box<Mutex<Vec<String>>>,
+    #[cfg(feature = "tree-sitter-highlight")]
     use_all_highlight_names: bool,
     debug_build: bool,
+    sanitize_build: bool,
+    force_rebuild: bool,
 
     #[cfg(feature = "wasm")]
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
@@ -126,6 +344,7 @@ pub struct CompileConfig<'a> {
     pub external_files: Option<&'a [PathBuf]>,
     pub output_path: Option<PathBuf>,
     pub flags: &'a [&'a str],
+    pub sanitize: bool,
     pub name: String,
 }
 
@@ -143,13 +362,13 @@ impl<'a> CompileConfig<'a> {
             scanner_path: None,
             external_files: externals,
             output_path,
-            flags: &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_INTERNAL_BUILD"],
+            flags: &[],
+            sanitize: false,
             name: String::new(),
         }
     }
 }
 
-unsafe impl Send for Loader {}
 unsafe impl Sync for Loader {}
 
 impl Loader {
@@ -173,15 +392,20 @@ impl Loader {
             language_configuration_ids_by_file_type: HashMap::new(),
             language_configuration_in_current_path: None,
             language_configuration_ids_by_first_line_regex: HashMap::new(),
+            #[cfg(feature = "tree-sitter-highlight")]
             highlight_names: Box::new(Mutex::new(Vec::new())),
+            #[cfg(feature = "tree-sitter-highlight")]
             use_all_highlight_names: true,
             debug_build: false,
+            sanitize_build: false,
+            force_rebuild: false,
 
             #[cfg(feature = "wasm")]
             wasm_store: Mutex::default(),
         }
     }
 
+    #[cfg(feature = "tree-sitter-highlight")]
     pub fn configure_highlights(&mut self, names: &[String]) {
         self.use_all_highlight_names = false;
         let mut highlights = self.highlight_names.lock().unwrap();
@@ -190,6 +414,7 @@ impl Loader {
     }
 
     #[must_use]
+    #[cfg(feature = "tree-sitter-highlight")]
     pub fn highlight_names(&self) -> Vec<String> {
         self.highlight_names.lock().unwrap().clone()
     }
@@ -405,18 +630,7 @@ impl Loader {
 
     pub fn load_language_at_path(&self, mut config: CompileConfig) -> Result<Language> {
         let grammar_path = config.src_path.join("grammar.json");
-
-        #[derive(Deserialize)]
-        struct GrammarJSON {
-            name: String,
-        }
-        let mut grammar_file =
-            fs::File::open(grammar_path).with_context(|| "Failed to read grammar.json")?;
-        let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
-            .with_context(|| "Failed to parse grammar.json")?;
-
-        config.name = grammar_json.name;
-
+        config.name = Self::grammar_json_name(&grammar_path)?;
         self.load_language_at_path_with_name(config)
     }
 
@@ -430,11 +644,16 @@ impl Loader {
             lib_name.push_str(".debug._");
         }
 
+        if self.sanitize_build {
+            lib_name.push_str(".sanitize._");
+            config.sanitize = true;
+        }
+
         if config.output_path.is_none() {
             fs::create_dir_all(&self.parser_lib_path)?;
         }
 
-        let mut recompile = config.output_path.is_some(); // if specified, always recompile
+        let mut recompile = self.force_rebuild || config.output_path.is_some(); // if specified, always recompile
 
         let output_path = config.output_path.unwrap_or_else(|| {
             let mut path = self.parser_lib_path.join(lib_name);
@@ -474,6 +693,7 @@ impl Loader {
             if recompile {
                 self.compile_parser_to_wasm(
                     &config.name,
+                    None,
                     config.src_path,
                     config
                         .scanner_path
@@ -561,16 +781,34 @@ impl Loader {
         lock_file: &fs::File,
         lock_path: &Path,
     ) -> Result<(), Error> {
-        let mut cc = cc::Build::new();
-        cc.cpp(true)
-            .opt_level(2)
+        let mut cc_config = cc::Build::new();
+        cc_config
             .cargo_metadata(false)
             .cargo_warnings(false)
             .target(BUILD_TARGET)
-            .host(BUILD_TARGET)
-            .flag_if_supported("-Werror=implicit-function-declaration");
-        let compiler = cc.get_compiler();
+            .host(BUILD_HOST)
+            .debug(self.debug_build)
+            .file(&config.parser_path)
+            .includes(&config.header_paths)
+            .std("c11");
+
+        if let Some(scanner_path) = config.scanner_path.as_ref() {
+            cc_config.file(scanner_path);
+        }
+
+        if self.debug_build {
+            cc_config.opt_level(0).extra_warnings(true);
+        } else {
+            cc_config.opt_level(2).extra_warnings(false);
+        }
+
+        for flag in config.flags {
+            cc_config.define(flag, None);
+        }
+
+        let compiler = cc_config.get_compiler();
         let mut command = Command::new(compiler.path());
+        command.args(compiler.args());
         for (key, value) in compiler.env() {
             command.env(key, value);
         }
@@ -578,71 +816,23 @@ impl Loader {
         let output_path = config.output_path.as_ref().unwrap();
 
         if compiler.is_like_msvc() {
-            command.args(["/nologo", "/LD"]);
-
-            for path in &config.header_paths {
-                command.arg(format!("/I{}", path.to_string_lossy()));
-            }
-
-            if self.debug_build {
-                command.arg("/Od");
-            } else {
-                command.arg("/O2");
-            }
-            command.arg(&config.parser_path);
-
-            if let Some(scanner_path) = config.scanner_path.as_ref() {
-                if scanner_path.extension() != Some("c".as_ref()) {
-                    eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-                }
-
-                command.arg(scanner_path);
-            }
-            command
-                .arg("/utf-8")
-                .arg("/link")
-                .arg(format!("/out:{}", output_path.to_str().unwrap()));
+            let out = format!("-out:{}", output_path.to_str().unwrap());
+            command.arg(if self.debug_build { "-LDd" } else { "-LD" });
+            command.arg("-utf-8");
+            command.args(cc_config.get_files());
+            command.arg("-link").arg(out);
         } else {
-            command
-                .arg("-shared")
-                .arg("-fno-exceptions")
-                .arg("-g")
-                .arg("-o")
-                .arg(output_path);
-
-            for path in &config.header_paths {
-                command.arg(format!("-I{}", path.to_string_lossy()));
-            }
-
-            if !cfg!(windows) {
-                command.arg("-fPIC");
-            }
-
-            if self.debug_build {
-                command.arg("-O0");
+            command.arg("-Werror=implicit-function-declaration");
+            if cfg!(any(target_os = "macos", target_os = "ios")) {
+                command.arg("-dynamiclib");
+                // TODO: remove when supported
+                command.arg("-UTREE_SITTER_REUSE_ALLOCATOR");
             } else {
-                command.arg("-O2");
+                command.arg("-shared");
             }
-
-            if let Some(scanner_path) = config.scanner_path.as_ref() {
-                if scanner_path.extension() == Some("c".as_ref()) {
-                    command.arg("-xc").arg("-std=c11").arg(scanner_path);
-                } else {
-                    eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-                    command.arg(scanner_path);
-                }
-            }
-            command.arg("-xc").arg(&config.parser_path);
+            command.args(cc_config.get_files());
+            command.arg("-o").arg(output_path);
         }
-
-        // For conditional compilation of external scanner code when
-        // used internally by `tree-sitter parse` and other sub commands.
-        command.arg("-DTREE_SITTER_INTERNAL_BUILD");
-
-        // Always use the same allocator in the CLI as any scanner, useful for debugging and
-        // tracking memory leaks in tests.
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        command.arg("-DTREE_SITTER_REUSE_ALLOCATOR");
 
         let output = command.output().with_context(|| {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")
@@ -651,20 +841,24 @@ impl Loader {
         lock_file.unlock()?;
         fs::remove_file(lock_path)?;
 
-        if !output.status.success() {
-            return Err(anyhow!(
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(anyhow!(
                 "Parser compilation failed.\nStdout: {}\nStderr: {}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
-            ));
+            ))
         }
-
-        Ok(())
     }
 
     #[cfg(unix)]
     fn check_external_scanner(&self, name: &str, library_path: &Path) -> Result<()> {
-        let prefix = if cfg!(target_os = "macos") { "_" } else { "" };
+        let prefix = if cfg!(any(target_os = "macos", target_os = "ios")) {
+            "_"
+        } else {
+            ""
+        };
         let mut must_have = vec![
             format!("{prefix}tree_sitter_{name}_external_scanner_create"),
             format!("{prefix}tree_sitter_{name}_external_scanner_destroy"),
@@ -744,6 +938,7 @@ impl Loader {
     pub fn compile_parser_to_wasm(
         &self,
         language_name: &str,
+        root_path: Option<&Path>,
         src_path: &Path,
         scanner_filename: Option<&Path>,
         output_path: &Path,
@@ -756,6 +951,7 @@ impl Loader {
             Podman,
         }
 
+        let root_path = root_path.unwrap_or(src_path);
         let emcc_name = if cfg!(windows) { "emcc.bat" } else { "emcc" };
 
         // Order of preference: emscripten > docker > podman > error
@@ -790,14 +986,22 @@ impl Loader {
                 let mut command = match source {
                     EmccSource::Docker => Command::new("docker"),
                     EmccSource::Podman => Command::new("podman"),
-                    _ => unreachable!(),
+                    EmccSource::Native => unreachable!(),
                 };
                 command.args(["run", "--rm"]);
 
-                // Mount the parser directory as a volume
-                command.args(["--workdir", "/src"]);
+                // The working directory is the directory containing the parser itself
+                let workdir = if root_path == src_path {
+                    PathBuf::from("/src")
+                } else {
+                    let mut path = PathBuf::from("/src");
+                    path.push(src_path.strip_prefix(root_path).unwrap());
+                    path
+                };
+                command.args(["--workdir", &workdir.to_slash_lossy()]);
 
-                let mut volume_string = OsString::from(&src_path);
+                // Mount the root directory as a volume, which is the repo root
+                let mut volume_string = OsString::from(&root_path);
                 volume_string.push(":/src:Z");
                 command.args([OsStr::new("--volume"), &volume_string]);
 
@@ -853,14 +1057,6 @@ impl Loader {
         ]);
 
         if let Some(scanner_filename) = scanner_filename {
-            if scanner_filename
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .map_or(false, |ext| ["cc", "cpp"].contains(&ext))
-            {
-                eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-                command.arg("-xc++");
-            }
             command.arg(scanner_filename);
         }
 
@@ -880,6 +1076,7 @@ impl Loader {
     }
 
     #[must_use]
+    #[cfg(feature = "tree-sitter-highlight")]
     pub fn highlight_config_for_injection_string<'a>(
         &'a self,
         string: &str,
@@ -910,99 +1107,35 @@ impl Loader {
         parser_path: &Path,
         set_current_path_config: bool,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Deserialize, Clone, Default)]
-        #[serde(untagged)]
-        enum PathsJSON {
-            #[default]
-            Empty,
-            Single(String),
-            Multiple(Vec<String>),
-        }
-
-        impl PathsJSON {
-            fn into_vec(self) -> Option<Vec<String>> {
-                match self {
-                    Self::Empty => None,
-                    Self::Single(s) => Some(vec![s]),
-                    Self::Multiple(s) => Some(s),
-                }
-            }
-        }
-
-        #[derive(Deserialize)]
-        struct LanguageConfigurationJSON {
-            #[serde(default)]
-            path: PathBuf,
-            scope: Option<String>,
-            #[serde(rename = "file-types")]
-            file_types: Option<Vec<String>>,
-            #[serde(rename = "content-regex")]
-            content_regex: Option<String>,
-            #[serde(rename = "first-line-regex")]
-            first_line_regex: Option<String>,
-            #[serde(rename = "injection-regex")]
-            injection_regex: Option<String>,
-            #[serde(default)]
-            highlights: PathsJSON,
-            #[serde(default)]
-            injections: PathsJSON,
-            #[serde(default)]
-            locals: PathsJSON,
-            #[serde(default)]
-            tags: PathsJSON,
-            #[serde(default, rename = "external-files")]
-            external_files: PathsJSON,
-        }
-
-        #[derive(Deserialize)]
-        struct PackageJSON {
-            #[serde(default)]
-            #[serde(rename = "tree-sitter")]
-            tree_sitter: Vec<LanguageConfigurationJSON>,
-        }
-
-        #[derive(Deserialize)]
-        struct GrammarJSON {
-            name: String,
-        }
-
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Ok(package_json_contents) = fs::read_to_string(parser_path.join("package.json")) {
-            let package_json = serde_json::from_str::<PackageJSON>(&package_json_contents);
-            if let Ok(package_json) = package_json {
-                let language_count = self.languages_by_id.len();
-                for config_json in package_json.tree_sitter {
-                    // Determine the path to the parser directory. This can be specified in
-                    // the package.json, but defaults to the directory containing the package.json.
-                    let language_path = parser_path.join(config_json.path);
+        if let Some(config) = TreeSitterJSON::from_file(parser_path) {
+            let language_count = self.languages_by_id.len();
+            for grammar in config.grammars {
+                // Determine the path to the parser directory. This can be specified in
+                // the tree-sitter.json, but defaults to the directory containing the
+                // tree-sitter.json.
+                let language_path = parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
 
-                    let grammar_path = language_path.join("src").join("grammar.json");
-                    let mut grammar_file = fs::File::open(grammar_path)
-                        .with_context(|| "Failed to read grammar.json")?;
-                    let grammar_json: GrammarJSON =
-                        serde_json::from_reader(BufReader::new(&mut grammar_file))
-                            .with_context(|| "Failed to parse grammar.json")?;
-
-                    // Determine if a previous language configuration in this package.json file
-                    // already uses the same language.
-                    let mut language_id = None;
-                    for (id, (path, _, _)) in
-                        self.languages_by_id.iter().enumerate().skip(language_count)
-                    {
-                        if language_path == *path {
-                            language_id = Some(id);
-                        }
+                // Determine if a previous language configuration in this package.json file
+                // already uses the same language.
+                let mut language_id = None;
+                for (id, (path, _, _)) in
+                    self.languages_by_id.iter().enumerate().skip(language_count)
+                {
+                    if language_path == *path {
+                        language_id = Some(id);
                     }
+                }
 
-                    // If not, add a new language path to the list.
-                    let language_id = if let Some(language_id) = language_id {
-                        language_id
-                    } else {
-                        self.languages_by_id.push((
+                // If not, add a new language path to the list.
+                let language_id = if let Some(language_id) = language_id {
+                    language_id
+                } else {
+                    self.languages_by_id.push((
                             language_path,
                             OnceCell::new(),
-                            config_json.external_files.clone().into_vec().map(|files| {
+                            grammar.external_files.clone().into_vec().map(|files| {
                                 files.into_iter()
                                     .map(|path| {
                                        let path = parser_path.join(path);
@@ -1016,69 +1149,70 @@ impl Loader {
                                     .collect::<Result<Vec<_>>>()
                             }).transpose()?,
                         ));
-                        self.languages_by_id.len() - 1
-                    };
+                    self.languages_by_id.len() - 1
+                };
 
-                    let configuration = LanguageConfiguration {
-                        root_path: parser_path.to_path_buf(),
-                        language_name: grammar_json.name.clone(),
-                        scope: config_json.scope,
-                        language_id,
-                        file_types: config_json.file_types.unwrap_or_default(),
-                        content_regex: Self::regex(config_json.content_regex.as_deref()),
-                        first_line_regex: Self::regex(config_json.first_line_regex.as_deref()),
-                        injection_regex: Self::regex(config_json.injection_regex.as_deref()),
-                        injections_filenames: config_json.injections.into_vec(),
-                        locals_filenames: config_json.locals.into_vec(),
-                        tags_filenames: config_json.tags.into_vec(),
-                        highlights_filenames: config_json.highlights.into_vec(),
-                        highlight_config: OnceCell::new(),
-                        tags_config: OnceCell::new(),
-                        highlight_names: &self.highlight_names,
-                        use_all_highlight_names: self.use_all_highlight_names,
-                    };
+                let configuration = LanguageConfiguration {
+                    root_path: parser_path.to_path_buf(),
+                    language_name: grammar.name,
+                    scope: Some(grammar.scope),
+                    language_id,
+                    file_types: grammar.file_types.unwrap_or_default(),
+                    content_regex: Self::regex(grammar.content_regex.as_deref()),
+                    first_line_regex: Self::regex(grammar.first_line_regex.as_deref()),
+                    injection_regex: Self::regex(grammar.injection_regex.as_deref()),
+                    injections_filenames: grammar.injections.into_vec(),
+                    locals_filenames: grammar.locals.into_vec(),
+                    tags_filenames: grammar.tags.into_vec(),
+                    highlights_filenames: grammar.highlights.into_vec(),
+                    #[cfg(feature = "tree-sitter-highlight")]
+                    highlight_config: OnceCell::new(),
+                    #[cfg(feature = "tree-sitter-tags")]
+                    tags_config: OnceCell::new(),
+                    #[cfg(feature = "tree-sitter-highlight")]
+                    highlight_names: &self.highlight_names,
+                    #[cfg(feature = "tree-sitter-highlight")]
+                    use_all_highlight_names: self.use_all_highlight_names,
+                };
 
-                    for file_type in &configuration.file_types {
-                        self.language_configuration_ids_by_file_type
-                            .entry(file_type.to_string())
-                            .or_default()
-                            .push(self.language_configurations.len());
-                    }
-                    if let Some(first_line_regex) = &configuration.first_line_regex {
-                        self.language_configuration_ids_by_first_line_regex
-                            .entry(first_line_regex.to_string())
-                            .or_default()
-                            .push(self.language_configurations.len());
-                    }
+                for file_type in &configuration.file_types {
+                    self.language_configuration_ids_by_file_type
+                        .entry(file_type.to_string())
+                        .or_default()
+                        .push(self.language_configurations.len());
+                }
+                if let Some(first_line_regex) = &configuration.first_line_regex {
+                    self.language_configuration_ids_by_first_line_regex
+                        .entry(first_line_regex.to_string())
+                        .or_default()
+                        .push(self.language_configurations.len());
+                }
 
-                    self.language_configurations.push(unsafe {
-                        mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
-                            configuration,
-                        )
-                    });
+                self.language_configurations.push(unsafe {
+                    mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
+                        configuration,
+                    )
+                });
 
-                    if set_current_path_config
-                        && self.language_configuration_in_current_path.is_none()
-                    {
-                        self.language_configuration_in_current_path =
-                            Some(self.language_configurations.len() - 1);
-                    }
+                if set_current_path_config && self.language_configuration_in_current_path.is_none()
+                {
+                    self.language_configuration_in_current_path =
+                        Some(self.language_configurations.len() - 1);
                 }
             }
         }
 
+        // If we didn't find any language configurations in the tree-sitter.json file,
+        // but there is a grammar.json file, then use the grammar file to form a simple
+        // language configuration.
         if self.language_configurations.len() == initial_language_configuration_count
             && parser_path.join("src").join("grammar.json").exists()
         {
             let grammar_path = parser_path.join("src").join("grammar.json");
-            let mut grammar_file =
-                fs::File::open(grammar_path).with_context(|| "Failed to read grammar.json")?;
-            let grammar_json: GrammarJSON =
-                serde_json::from_reader(BufReader::new(&mut grammar_file))
-                    .with_context(|| "Failed to parse grammar.json")?;
+            let language_name = Self::grammar_json_name(&grammar_path)?;
             let configuration = LanguageConfiguration {
                 root_path: parser_path.to_owned(),
-                language_name: grammar_json.name,
+                language_name,
                 language_id: self.languages_by_id.len(),
                 file_types: Vec::new(),
                 scope: None,
@@ -1089,9 +1223,13 @@ impl Loader {
                 locals_filenames: None,
                 highlights_filenames: None,
                 tags_filenames: None,
+                #[cfg(feature = "tree-sitter-highlight")]
                 highlight_config: OnceCell::new(),
+                #[cfg(feature = "tree-sitter-tags")]
                 tags_config: OnceCell::new(),
+                #[cfg(feature = "tree-sitter-highlight")]
                 highlight_names: &self.highlight_names,
+                #[cfg(feature = "tree-sitter-highlight")]
                 use_all_highlight_names: self.use_all_highlight_names,
             };
             self.language_configurations.push(unsafe {
@@ -1108,6 +1246,36 @@ impl Loader {
 
     fn regex(pattern: Option<&str>) -> Option<Regex> {
         pattern.and_then(|r| RegexBuilder::new(r).multi_line(true).build().ok())
+    }
+
+    fn grammar_json_name(grammar_path: &Path) -> Result<String> {
+        let file = fs::File::open(grammar_path).with_context(|| {
+            format!("Failed to open grammar.json at {}", grammar_path.display())
+        })?;
+
+        let first_three_lines = BufReader::new(file)
+            .lines()
+            .take(3)
+            .collect::<Result<Vec<_>, _>>()
+            .with_context(|| {
+                format!(
+                    "Failed to read the first three lines of grammar.json at {}",
+                    grammar_path.display()
+                )
+            })?
+            .join("\n");
+
+        let name = GRAMMAR_NAME_REGEX
+            .captures(&first_three_lines)
+            .and_then(|c| c.get(1))
+            .ok_or_else(|| {
+                anyhow!(
+                    "Failed to parse the language name from grammar.json at {}",
+                    grammar_path.display()
+                )
+            })?;
+
+        Ok(name.as_str().to_string())
     }
 
     pub fn select_language(
@@ -1151,29 +1319,32 @@ impl Loader {
         }
     }
 
-    pub fn use_debug_build(&mut self, flag: bool) {
+    pub fn debug_build(&mut self, flag: bool) {
         self.debug_build = flag;
     }
 
+    pub fn sanitize_build(&mut self, flag: bool) {
+        self.sanitize_build = flag;
+    }
+
+    pub fn force_rebuild(&mut self, rebuild: bool) {
+        self.force_rebuild = rebuild;
+    }
+
     #[cfg(feature = "wasm")]
-    pub fn use_wasm(&mut self, engine: tree_sitter::wasmtime::Engine) {
+    pub fn use_wasm(&mut self, engine: &tree_sitter::wasmtime::Engine) {
         *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap());
     }
 
     #[must_use]
     pub fn get_scanner_path(&self, src_path: &Path) -> Option<PathBuf> {
-        let mut path = src_path.join("scanner.c");
-        for extension in ["c", "cc", "cpp"] {
-            path.set_extension(extension);
-            if path.exists() {
-                return Some(path);
-            }
-        }
-        None
+        let path = src_path.join("scanner.c");
+        path.exists().then_some(path)
     }
 }
 
-impl<'a> LanguageConfiguration<'a> {
+impl LanguageConfiguration<'_> {
+    #[cfg(feature = "tree-sitter-highlight")]
     pub fn highlight_config(
         &self,
         language: Language,
@@ -1184,14 +1355,14 @@ impl<'a> LanguageConfiguration<'a> {
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("highlights.scm"))
+                        .filter(|p| p.ends_with("tree-sitter-highlights.scm"))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("tags.scm"))
+                        .filter(|p| p.ends_with("tree-sitter-tags.scm"))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
@@ -1213,7 +1384,7 @@ impl<'a> LanguageConfiguration<'a> {
                     } else {
                         self.highlights_filenames.as_deref()
                     },
-                    "highlights.scm",
+                    "tree-sitter-highlights.scm",
                 )?;
                 let (injections_query, injection_ranges) = self.read_queries(
                     if injections_filenames.is_some() {
@@ -1285,11 +1456,12 @@ impl<'a> LanguageConfiguration<'a> {
             .map(Option::as_ref)
     }
 
+    #[cfg(feature = "tree-sitter-tags")]
     pub fn tags_config(&self, language: Language) -> Result<Option<&TagsConfiguration>> {
         self.tags_config
             .get_or_try_init(|| {
                 let (tags_query, tags_ranges) =
-                    self.read_queries(self.tags_filenames.as_deref(), "tags.scm")?;
+                    self.read_queries(self.tags_filenames.as_deref(), "tree-sitter-tags.scm")?;
                 let (locals_query, locals_ranges) =
                     self.read_queries(self.locals_filenames.as_deref(), "locals.scm")?;
                 if tags_query.is_empty() {
@@ -1323,6 +1495,7 @@ impl<'a> LanguageConfiguration<'a> {
             .map(Option::as_ref)
     }
 
+    #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
     fn include_path_in_query_error(
         mut error: QueryError,
         ranges: &[(String, Range<usize>)],
@@ -1336,12 +1509,13 @@ impl<'a> LanguageConfiguration<'a> {
             .unwrap_or_else(|| ranges.last().unwrap());
         error.offset = offset_within_section - range.start;
         error.row = source[range.start..offset_within_section]
-            .matches(|c| c == '\n')
+            .matches('\n')
             .count();
         Error::from(error).context(format!("Error in query file {path:?}"))
     }
 
     #[allow(clippy::type_complexity)]
+    #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
     fn read_queries(
         &self,
         paths: Option<&[String]>,
@@ -1359,7 +1533,9 @@ impl<'a> LanguageConfiguration<'a> {
             }
         } else {
             // highlights.scm is needed to test highlights, and tags.scm to test tags
-            if default_path == "highlights.scm" || default_path == "tags.scm" {
+            if default_path == "tree-sitter-highlights.scm"
+                || default_path == "tree-sitter-tags.scm"
+            {
                 eprintln!(
                     indoc! {"
                         Warning: you should add a `{}` entry pointing to the highlights path in `tree-sitter` language list in the grammar's package.json

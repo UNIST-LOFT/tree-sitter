@@ -8,7 +8,8 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 #[cfg(not(feature = "bindgen"))]
 include!("./bindings.rs");
 
-#[cfg(any(unix, target_os = "wasi"))]
+#[cfg(unix)]
+#[cfg(feature = "std")]
 extern "C" {
     pub(crate) fn _ts_dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
 }
@@ -18,7 +19,7 @@ extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
-use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
+use core::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 use crate::{
     Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
@@ -84,7 +85,7 @@ impl Tree {
     }
 }
 
-impl<'tree> Node<'tree> {
+impl Node<'_> {
     /// Reconstructs a [`Node`] from a raw pointer.
     ///
     /// # Safety
@@ -102,7 +103,7 @@ impl<'tree> Node<'tree> {
     }
 }
 
-impl<'a> TreeCursor<'a> {
+impl TreeCursor<'_> {
     /// Reconstructs a [`TreeCursor`] from a raw pointer.
     ///
     /// # Safety

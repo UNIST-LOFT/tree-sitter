@@ -922,7 +922,7 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit) {
 /** Added by FreddyYJ. */
 
 char* ts_substr(const char* str, uint32_t start, uint32_t end) {
-  char* new=malloc(sizeof(char)*(end-start+1));
+  char* new=ts_malloc(sizeof(char)*(end-start+1));
   strncpy(new,str+start,end-start);
   new[end-start]='\0';
   return new;

@@ -768,6 +768,8 @@ char* ts_node_find_value(TSNode self);
 */
 void ts_node_print_tree(TSNode self, int32_t cur_indent);
 
+/* Addition finished */
+
 /************************/
 /* Section - TreeCursor */
 /************************/

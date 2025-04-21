@@ -907,3 +907,5 @@ void ts_node_print_tree(TSNode self, int32_t cur_indent) {
     ts_node_print_tree(child, cur_indent + 2);
   }
 }
+
+/* Addition Finished */

@@ -1,20 +1,24 @@
 use std::{
     fmt, fs,
     io::{self, StdoutLock, Write},
-    path::Path,
-    sync::atomic::AtomicUsize,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
 
 use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
+use tree_sitter::{
+    ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
+    TreeCursor,
+};
 
 use super::util;
 use crate::{fuzz::edits::Edit, test::paint};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,
@@ -25,18 +29,28 @@ pub struct Stats {
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let duration_us = self.total_duration.as_micros();
+        let success_rate = if self.total_parses > 0 {
+            format!(
+                "{:.2}%",
+                ((self.successful_parses as f64) / (self.total_parses as f64)) * 100.0,
+            )
+        } else {
+            "N/A".to_string()
+        };
+        let duration_str = match (self.total_parses, duration_us) {
+            (0, _) => "N/A".to_string(),
+            (_, 0) => "0 bytes/ms".to_string(),
+            (_, _) => format!(
+                "{} bytes/ms",
+                ((self.total_bytes as u128) * 1_000) / duration_us
+            ),
+        };
         writeln!(
             f,
-            "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%; average speed: {} bytes/ms",
+            "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {success_rate}; average speed: {duration_str}",
             self.total_parses,
             self.successful_parses,
             self.total_parses - self.successful_parses,
-            ((self.successful_parses as f64) / (self.total_parses as f64)) * 100.0,
-            if duration_us != 0 {
-                ((self.total_bytes as u128) * 1_000) / duration_us
-            } else {
-                0
-            }
         )
     }
 }
@@ -174,15 +188,68 @@ pub enum ParseOutput {
     Dot,
 }
 
+/// A position in a multi-line text document, in terms of rows and columns.
+///
+/// Rows and columns are zero-based.
+///
+/// This serves as a serializable wrapper for `Point`
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+pub struct ParsePoint {
+    pub row: usize,
+    pub column: usize,
+}
+
+impl From<Point> for ParsePoint {
+    fn from(value: Point) -> Self {
+        Self {
+            row: value.row,
+            column: value.column,
+        }
+    }
+}
+
+#[derive(Serialize, Default, Debug, Clone)]
+pub struct ParseSummary {
+    pub file: PathBuf,
+    pub successful: bool,
+    pub start: Option<ParsePoint>,
+    pub end: Option<ParsePoint>,
+    pub duration: Option<Duration>,
+    pub bytes: Option<usize>,
+}
+
+impl ParseSummary {
+    #[must_use]
+    pub fn new(path: &Path) -> Self {
+        Self {
+            file: path.to_path_buf(),
+            successful: false,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Serialize, Debug, Default)]
+pub struct ParseStats {
+    pub parse_summaries: Vec<ParseSummary>,
+    pub cumulative_stats: Stats,
+}
+
+#[derive(Serialize, ValueEnum, Debug, Clone, Default, Eq, PartialEq)]
+pub enum ParseDebugType {
+    #[default]
+    Quiet,
+    Normal,
+    Pretty,
+}
+
 pub struct ParseFileOptions<'a> {
-    pub language: Language,
-    pub path: &'a Path,
     pub edits: &'a [&'a str],
-    pub max_path_length: usize,
     pub output: ParseOutput,
+    pub stats: &'a mut ParseStats,
     pub print_time: bool,
     pub timeout: u64,
-    pub debug: bool,
+    pub debug: ParseDebugType,
     pub debug_graph: bool,
     pub cancellation_flag: Option<&'a AtomicUsize>,
     pub encoding: Option<u32>,
@@ -198,34 +265,64 @@ pub struct ParseResult {
     pub duration: Option<Duration>,
 }
 
-pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Result<ParseResult> {
+pub fn parse_file_at_path(
+    parser: &mut Parser,
+    language: &Language,
+    path: &Path,
+    name: &str,
+    max_path_length: usize,
+    opts: &mut ParseFileOptions,
+) -> Result<()> {
     let mut _log_session = None;
-    parser.set_language(&opts.language)?;
-    let mut source_code = fs::read(opts.path)
-        .with_context(|| format!("Error reading source file {:?}", opts.path))?;
-
-    // If the `--cancel` flag was passed, then cancel the parse
-    // when the user types a newline.
-    unsafe { parser.set_cancellation_flag(opts.cancellation_flag) };
-
-    // Set a timeout based on the `--time` flag.
-    parser.set_timeout_micros(opts.timeout);
+    parser.set_language(language)?;
+    let mut source_code = fs::read(path).with_context(|| format!("Error reading {name:?}"))?;
 
     // Render an HTML graph if `--debug-graph` was passed
     if opts.debug_graph {
         _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
     }
     // Log to stderr if `--debug` was passed
-    else if opts.debug {
+    else if opts.debug != ParseDebugType::Quiet {
+        let mut curr_version: usize = 0usize;
+        let use_color = std::env::var("NO_COLOR").map_or(true, |v| v != "1");
         parser.set_logger(Some(Box::new(|log_type, message| {
-            if log_type == LogType::Lex {
-                io::stderr().write_all(b"  ").unwrap();
+            if opts.debug == ParseDebugType::Normal {
+                if log_type == LogType::Lex {
+                    write!(&mut io::stderr(), "  ").unwrap();
+                }
+                writeln!(&mut io::stderr(), "{message}").unwrap();
+            } else {
+                let colors = &[
+                    AnsiColor::White,
+                    AnsiColor::Red,
+                    AnsiColor::Blue,
+                    AnsiColor::Green,
+                    AnsiColor::Cyan,
+                    AnsiColor::Yellow,
+                ];
+                if message.starts_with("process version:") {
+                    let comma_idx = message.find(',').unwrap();
+                    curr_version = message["process version:".len()..comma_idx]
+                        .parse()
+                        .unwrap();
+                }
+                let color = if use_color {
+                    Some(colors[curr_version])
+                } else {
+                    None
+                };
+                let mut out = if log_type == LogType::Lex {
+                    "  ".to_string()
+                } else {
+                    String::new()
+                };
+                out += &paint(color, message);
+                writeln!(&mut io::stderr(), "{out}").unwrap();
             }
-            writeln!(&mut io::stderr(), "{message}").unwrap();
         })));
     }
 
-    let time = Instant::now();
+    let parse_time = Instant::now();
 
     #[inline(always)]
     fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
@@ -250,23 +347,76 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         _ => opts.encoding,
     };
 
+    // If the `--cancel` flag was passed, then cancel the parse
+    // when the user types a newline.
+    //
+    // Additionally, if the `--time` flag was passed, end the parse
+    // after the specified number of microseconds.
+    let start_time = Instant::now();
+    let progress_callback = &mut |_: &ParseState| {
+        if let Some(cancellation_flag) = opts.cancellation_flag {
+            if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                return true;
+            }
+        }
+
+        if opts.timeout > 0 && start_time.elapsed().as_micros() > opts.timeout as u128 {
+            return true;
+        }
+
+        false
+    };
+
+    let parse_opts = ParseOptions::new().progress_callback(progress_callback);
+
     let tree = match encoding {
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
                 .collect::<Vec<_>>();
-            parser.parse_utf16_le(&source_code_utf16, None)
+            parser.parse_utf16_le_with_options(
+                &mut |i, _| {
+                    if i < source_code_utf16.len() {
+                        &source_code_utf16[i..]
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+                Some(parse_opts),
+            )
         }
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
                 .collect::<Vec<_>>();
-            parser.parse_utf16_be(&source_code_utf16, None)
+            parser.parse_utf16_be_with_options(
+                &mut |i, _| {
+                    if i < source_code_utf16.len() {
+                        &source_code_utf16[i..]
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+                Some(parse_opts),
+            )
         }
-        _ => parser.parse(&source_code, None),
+        _ => parser.parse_with_options(
+            &mut |i, _| {
+                if i < source_code.len() {
+                    &source_code[i..]
+                } else {
+                    &[]
+                }
+            },
+            None,
+            Some(parse_opts),
+        ),
     };
+    let parse_duration = parse_time.elapsed();
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -276,6 +426,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
         }
 
+        let edit_time = Instant::now();
         for (i, edit) in opts.edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
             perform_edit(&mut tree, &mut source_code, &edit)?;
@@ -285,11 +436,12 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                 println!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
             }
         }
+        let edit_duration = edit_time.elapsed();
 
         parser.stop_printing_dot_graphs();
 
-        let duration = time.elapsed();
-        let duration_ms = duration.as_micros() as f64 / 1e3;
+        let parse_duration_ms = parse_duration.as_micros() as f64 / 1e3;
+        let edit_duration_ms = edit_duration.as_micros() as f64 / 1e3;
         let mut cursor = tree.walk();
 
         if opts.output == ParseOutput::Normal {
@@ -359,6 +511,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                 .unwrap_or(1);
             let mut indent_level = 1;
             let mut did_visit_children = false;
+            let mut in_error = false;
             loop {
                 if did_visit_children {
                     if cursor.goto_next_sibling() {
@@ -366,6 +519,9 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                     } else if cursor.goto_parent() {
                         did_visit_children = true;
                         indent_level -= 1;
+                        if !cursor.node().has_error() {
+                            in_error = false;
+                        }
                     } else {
                         break;
                     }
@@ -377,10 +533,14 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         &mut stdout,
                         total_width,
                         indent_level,
+                        in_error,
                     )?;
                     if cursor.goto_first_child() {
                         did_visit_children = false;
                         indent_level += 1;
+                        if cursor.node().has_error() {
+                            in_error = true;
+                        }
                     } else {
                         did_visit_children = true;
                     }
@@ -484,14 +644,39 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         }
 
         let mut first_error = None;
-        loop {
+        let mut earliest_node_with_error = None;
+        'outer: loop {
             let node = cursor.node();
             if node.has_error() {
+                if earliest_node_with_error.is_none() {
+                    earliest_node_with_error = Some(node);
+                }
                 if node.is_error() || node.is_missing() {
                     first_error = Some(node);
                     break;
                 }
+
+                // If there's no more children, even though some outer node has an error,
+                // then that means that the first error is hidden, but the later error could be
+                // visible. So, we walk back up to the child of the first node with an error,
+                // and then check its siblings for errors.
                 if !cursor.goto_first_child() {
+                    let earliest = earliest_node_with_error.unwrap();
+                    while cursor.goto_parent() {
+                        if cursor.node().parent().is_some_and(|p| p == earliest) {
+                            while cursor.goto_next_sibling() {
+                                let sibling = cursor.node();
+                                if sibling.is_error() || sibling.is_missing() {
+                                    first_error = Some(sibling);
+                                    break 'outer;
+                                }
+                                if sibling.has_error() && cursor.goto_first_child() {
+                                    continue 'outer;
+                                }
+                            }
+                            break;
+                        }
+                    }
                     break;
                 }
             } else if !cursor.goto_next_sibling() {
@@ -500,29 +685,34 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         }
 
         if first_error.is_some() || opts.print_time {
+            let path = path.to_string_lossy();
             write!(
                 &mut stdout,
-                "{:width$}\t{duration_ms:>7.2} ms\t{:>6} bytes/ms",
-                opts.path.to_str().unwrap(),
-                (source_code.len() as u128 * 1_000_000) / duration.as_nanos(),
-                width = opts.max_path_length
+                "{:width$}\tParse: {parse_duration_ms:>7.2} ms\t{:>6} bytes/ms",
+                name,
+                (source_code.len() as u128 * 1_000_000) / parse_duration.as_nanos(),
+                width = max_path_length
             )?;
             if let Some(node) = first_error {
                 let start = node.start_position();
                 let end = node.end_position();
+                let mut node_text = String::new();
+                for c in node.kind().chars() {
+                    if let Some(escaped) = escape_invisible(c) {
+                        node_text += escaped;
+                    } else {
+                        node_text.push(c);
+                    }
+                }
                 write!(&mut stdout, "\t(")?;
                 if node.is_missing() {
                     if node.is_named() {
-                        write!(&mut stdout, "MISSING {}", node.kind())?;
+                        write!(&mut stdout, "MISSING {node_text}")?;
                     } else {
-                        write!(
-                            &mut stdout,
-                            "MISSING \"{}\"",
-                            node.kind().replace('\n', "\\n")
-                        )?;
+                        write!(&mut stdout, "MISSING \"{node_text}\"")?;
                     }
                 } else {
-                    write!(&mut stdout, "{}", node.kind())?;
+                    write!(&mut stdout, "{node_text}")?;
                 }
                 write!(
                     &mut stdout,
@@ -530,33 +720,51 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                     start.row, start.column, end.row, end.column
                 )?;
             }
+            if !opts.edits.is_empty() {
+                write!(
+                    &mut stdout,
+                    "\n{:width$}\tEdit:  {edit_duration_ms:>7.2} ms",
+                    " ".repeat(path.len()),
+                    width = max_path_length,
+                )?;
+            }
             writeln!(&mut stdout)?;
         }
 
-        return Ok(ParseResult {
+        opts.stats.parse_summaries.push(ParseSummary {
+            file: path.to_path_buf(),
             successful: first_error.is_none(),
-            bytes: source_code.len(),
-            duration: Some(duration),
+            start: Some(tree.root_node().start_position().into()),
+            end: Some(tree.root_node().end_position().into()),
+            duration: Some(parse_duration),
+            bytes: Some(source_code.len()),
         });
+
+        return Ok(());
     }
     parser.stop_printing_dot_graphs();
 
     if opts.print_time {
-        let duration = time.elapsed();
+        let duration = parse_time.elapsed();
         let duration_ms = duration.as_micros() as f64 / 1e3;
         writeln!(
             &mut stdout,
-            "{:width$}\t{duration_ms:>7.2} ms\t(timed out)",
-            opts.path.to_str().unwrap(),
-            width = opts.max_path_length
+            "{:width$}\tParse: {duration_ms:>7.2} ms\t(timed out)",
+            path.to_str().unwrap(),
+            width = max_path_length
         )?;
     }
 
-    Ok(ParseResult {
+    opts.stats.parse_summaries.push(ParseSummary {
+        file: path.to_path_buf(),
         successful: false,
-        bytes: source_code.len(),
+        start: None,
+        end: None,
         duration: None,
-    })
+        bytes: Some(source_code.len()),
+    });
+
+    Ok(())
 }
 
 const fn escape_invisible(c: char) -> Option<&'static str> {
@@ -610,6 +818,7 @@ fn write_node_text(
             paint(quote_color, &String::from(quote)),
         )?;
     } else {
+        let multiline = source.contains('\n');
         for (i, line) in source.split_inclusive('\n').enumerate() {
             if line.is_empty() {
                 break;
@@ -619,14 +828,28 @@ fn write_node_text(
             // and adjust the column by setting it to the length of *this* line.
             node_range.start_point.row += i;
             node_range.end_point.row = node_range.start_point.row;
-            node_range.end_point.column = line.len();
+            node_range.end_point.column = line.len()
+                + if i == 0 {
+                    node_range.start_point.column
+                } else {
+                    0
+                };
             let formatted_line = render_line_feed(line, opts);
             if !opts.no_ranges {
                 write!(
                     stdout,
-                    "\n{}{}{}{}{}",
-                    render_node_range(opts, cursor, is_named, true, total_width, node_range),
-                    "  ".repeat(indent_level + 1),
+                    "{}{}{}{}{}{}",
+                    if multiline { "\n" } else { "" },
+                    if multiline {
+                        render_node_range(opts, cursor, is_named, true, total_width, node_range)
+                    } else {
+                        String::new()
+                    },
+                    if multiline {
+                        "  ".repeat(indent_level + 1)
+                    } else {
+                        String::new()
+                    },
                     paint(quote_color, &String::from(quote)),
                     &paint(color, &render_node_text(&formatted_line)),
                     paint(quote_color, &String::from(quote)),
@@ -699,6 +922,7 @@ fn cst_render_node(
     stdout: &mut StdoutLock<'static>,
     total_width: usize,
     indent_level: usize,
+    in_error: bool,
 ) -> Result<()> {
     let node = cursor.node();
     let is_named = node.is_named();
@@ -709,7 +933,16 @@ fn cst_render_node(
             render_node_range(opts, cursor, is_named, false, total_width, node.range())
         )?;
     }
-    write!(stdout, "{}", "  ".repeat(indent_level))?;
+    write!(
+        stdout,
+        "{}{}",
+        "  ".repeat(indent_level),
+        if in_error && !node.has_error() {
+            " "
+        } else {
+            ""
+        }
+    )?;
     if is_named {
         if let Some(field_name) = cursor.field_name() {
             write!(
@@ -719,10 +952,13 @@ fn cst_render_node(
             )?;
         }
 
-        let kind_color = if node.has_error() {
+        if node.has_error() || node.is_error() {
             write!(stdout, "{}", paint(opts.parse_theme.error, "•"))?;
+        }
+
+        let kind_color = if node.is_error() {
             opts.parse_theme.error
-        } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra()) {
+        } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra() && !p.is_error()) {
             opts.parse_theme.extra
         } else {
             opts.parse_theme.node_kind
@@ -847,7 +1083,7 @@ pub fn offset_for_position(input: &[u8], position: Point) -> Result<usize> {
     if let Some(pos) = iter.next() {
         if (pos - offset < position.column) || (input[offset] == b'\n' && position.column > 0) {
             return Err(anyhow!("Failed to address a column: {}", position.column));
-        };
+        }
     } else if input.len() - offset < position.column {
         return Err(anyhow!("Failed to address a column over the end"));
     }

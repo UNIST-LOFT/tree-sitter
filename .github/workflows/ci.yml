@@ -2,8 +2,20 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - docs/**
+      - "**/README.md"
+      - CONTRIBUTING.md
+      - LICENSE
+      - cli/src/templates
   push:
     branches: [master]
+    paths-ignore:
+      - docs/**
+      - "**/README.md"
+      - CONTRIBUTING.md
+      - LICENSE
+      - cli/src/templates
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +32,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
+          components: clippy, rustfmt
 
       - name: Set up nightly Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -28,7 +41,14 @@ jobs:
           components: clippy, rustfmt
 
       - name: Lint files
-        run: make lint
+        run: |
+          make lint
+          make lint-web
+
+      - name: Lint files (Rust nightly)
+        continue-on-error: true
+        run: |
+          make lint-nightly
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml

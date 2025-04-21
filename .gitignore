@@ -12,7 +12,6 @@ test/fuzz/out
 test/fixtures/grammars/*
 !test/fixtures/grammars/.gitkeep
 
-package-lock.json
 node_modules
 
 docs/assets/js/tree-sitter.js
@@ -25,6 +24,7 @@ docs/assets/js/tree-sitter.js
 *.dylib
 *.so
 *.so.[0-9]*
+*.dll
 *.o
 *.obj
 *.exp

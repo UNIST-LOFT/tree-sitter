@@ -1,8 +1,4 @@
-ifeq ($(OS),Windows_NT)
-$(error Windows is not supported)
-endif
-
-VERSION := 0.25.0
+VERSION := 0.26.0
 DESCRIPTION := An incremental parsing system for programming tools
 HOMEPAGE_URL := https://tree-sitter.github.io/tree-sitter/
 
@@ -40,6 +36,10 @@ ifneq ($(findstring darwin,$(shell $(CC) -dumpmachine)),)
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
 	LINKSHARED += -dynamiclib -Wl,-install_name,$(LIBDIR)/libtree-sitter.$(SOEXTVER)
+else ifneq ($(findstring mingw32,$(shell $(CC) -dumpmachine)),)
+	SOEXT = dll
+	LINKSHARED += -s -shared -Wl,--out-implib,$(@:dll=lib)
+libtree-sitter.lib: libtree-sitter.$(SOEXT)
 else
 	SOEXT = so
 	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
@@ -70,7 +70,7 @@ tree-sitter.pc: lib/tree-sitter.pc.in
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
 clean:
-	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT)
+	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT) libtree-stitter.lib
 
 install: all
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter '$(DESTDIR)$(PCLIBDIR)' '$(DESTDIR)$(LIBDIR)'
@@ -99,20 +99,30 @@ test:
 	cargo xtask generate-fixtures
 	cargo xtask test
 
-test_wasm:
-	cargo xtask generate-fixtures-wasm
+test-wasm:
+	cargo xtask generate-fixtures --wasm
 	cargo xtask test-wasm
 
 lint:
 	cargo update --workspace --locked --quiet
 	cargo check --workspace --all-targets
 	cargo +nightly fmt --all --check
+	cargo +stable clippy --workspace --all-targets -- -D warnings
+
+lint-nightly:
+	cargo update --workspace --locked --quiet
+	cargo check --workspace --all-targets
+	cargo +nightly fmt --all --check
 	cargo +nightly clippy --workspace --all-targets -- -D warnings
+
+lint-web:
+	npm --prefix lib/binding_web ci
+	npm --prefix lib/binding_web run lint
 
 format:
 	cargo +nightly fmt --all
 
 changelog:
-	@git-cliff --config script/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
+	@git-cliff --config .github/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
 
-.PHONY: test test_wasm lint format changelog
+.PHONY: test test-wasm lint format changelog

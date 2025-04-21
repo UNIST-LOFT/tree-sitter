@@ -33,9 +33,13 @@ jobs:
 
       - name: Prepare release artifacts
         run: |
-          mkdir -p target
-          mv artifacts/tree-sitter.wasm/* target/
+          mkdir -p target web
+          mv artifacts/tree-sitter.wasm/* web/
+
+          tar -czf target/web-tree-sitter.tar.gz -C web .
+
           rm -r artifacts/tree-sitter.wasm
+
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
@@ -45,10 +49,9 @@ jobs:
 
       - name: Create release
         run: |-
-          gh release create \
+          gh release create ${{ github.ref_name }} \
             target/tree-sitter-*.gz \
-            target/tree-sitter.wasm \
-            target/tree-sitter.js
+            target/web-tree-sitter.tar.gz
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -77,7 +80,7 @@ jobs:
       matrix:
         directory: [cli/npm, lib/binding_web]
     steps:
-      - name: CHeckout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Node
@@ -91,7 +94,13 @@ jobs:
 
       - name: Build wasm
         if: matrix.directory == 'lib/binding_web'
-        run: cargo xtask build-wasm
+        run: |
+          cd ${{ matrix.directory }}
+          npm ci
+          npm run build
+          npm run build:debug
+          CJS=true npm run build
+          CJS=true npm run build:debug
 
       - name: Publish to npmjs.com
         working-directory: ${{ matrix.directory }}

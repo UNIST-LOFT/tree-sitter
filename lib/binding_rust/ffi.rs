@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
+#![allow(clippy::missing_const_for_fn)]
 
 #[cfg(feature = "bindgen")]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -15,6 +16,7 @@ extern "C" {
 }
 
 #[cfg(windows)]
+#[cfg(feature = "std")]
 extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
@@ -22,7 +24,8 @@ extern "C" {
 use core::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 use crate::{
-    Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
+    Language, LookaheadIterator, Node, ParseState, Parser, Query, QueryCursor, QueryCursorState,
+    QueryError, Tree, TreeCursor,
 };
 
 impl Language {
@@ -63,6 +66,24 @@ impl Parser {
     /// may cause issues like use after free.
     #[must_use]
     pub fn into_raw(self) -> *mut TSParser {
+        ManuallyDrop::new(self).0.as_ptr()
+    }
+}
+
+impl ParseState {
+    /// Reconstructs a [`ParseState`] from a raw pointer
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must be non-null.
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *mut TSParseState) -> Self {
+        Self(NonNull::new_unchecked(ptr))
+    }
+
+    /// Consumes the [`ParseState`], returning a raw pointer to the underlying C structure.
+    #[must_use]
+    pub fn into_raw(self) -> *mut TSParseState {
         ManuallyDrop::new(self).0.as_ptr()
     }
 }
@@ -155,6 +176,24 @@ impl QueryCursor {
     #[must_use]
     pub fn into_raw(self) -> *mut TSQueryCursor {
         ManuallyDrop::new(self).ptr.as_ptr()
+    }
+}
+
+impl QueryCursorState {
+    /// Reconstructs a [`QueryCursorState`] from a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must be non-null.
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *mut TSQueryCursorState) -> Self {
+        Self(NonNull::new_unchecked(ptr))
+    }
+
+    /// Consumes the [`QueryCursorState`], returning a raw pointer to the underlying C structure.
+    #[must_use]
+    pub fn into_raw(self) -> *mut TSQueryCursorState {
+        ManuallyDrop::new(self).0.as_ptr()
     }
 }
 

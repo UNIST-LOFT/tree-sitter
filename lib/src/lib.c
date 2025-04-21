@@ -1,5 +1,6 @@
 #include "./alloc.c"
 #include "./get_changed_ranges.c"
+#include "./interpreter.c"
 #include "./language.c"
 #include "./lexer.c"
 #include "./node.c"

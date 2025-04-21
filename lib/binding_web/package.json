@@ -1,6 +1,6 @@
 {
   "name": "web-tree-sitter",
-  "version": "0.26.0",
+  "version": "0.25.3",
   "description": "Tree-sitter bindings for the web",
   "repository": "https://github.com/tree-sitter/tree-sitter",
   "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
@@ -18,14 +18,14 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./web-tree-sitter.js",
-      "require": "./web-tree-sitter.cjs",
+      "import": "./tree-sitter.js",
+      "require": "./tree-sitter.cjs",
       "types": "./web-tree-sitter.d.ts"
     },
     "./web-tree-sitter.wasm": "./web-tree-sitter.wasm",
     "./debug": {
-      "import": "./debug/web-tree-sitter.js",
-      "require": "./debug/web-tree-sitter.cjs",
+      "import": "./debug/tree-sitter.js",
+      "require": "./debug/tree-sitter.cjs",
       "types": "./web-tree-sitter.d.ts"
     },
     "./debug/web-tree-sitter.wasm": "./debug/web-tree-sitter.wasm"

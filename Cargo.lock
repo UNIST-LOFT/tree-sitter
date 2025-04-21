@@ -1099,7 +1099,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -1953,7 +1953,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "bindgen",
  "cc",
@@ -1967,7 +1967,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "ansi_colours",
  "anstyle",
@@ -2019,7 +2019,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-config"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "etcetera",
@@ -2029,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-generate"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "heck",
@@ -2050,7 +2050,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "regex",
  "streaming-iterator",
@@ -2060,11 +2060,11 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-language"
-version = "0.1.4"
+version = "0.1.5"
 
 [[package]]
 name = "tree-sitter-loader"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "cc",
@@ -2087,7 +2087,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.26.0"
+version = "0.25.3"
 dependencies = [
  "memchr",
  "regex",

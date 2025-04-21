@@ -63,7 +63,7 @@ describe('Node', () => {
       tree = parser.parse('x10 + 1000')!;
       expect(tree.rootNode.children).toHaveLength(1);
       const sumNode = tree.rootNode.firstChild!.firstChild!;
-      expect(sumNode.children.map(child => child.type)).toEqual(['identifier', '+', 'number']);
+      expect(sumNode.children.map(child => child!.type)).toEqual(['identifier', '+', 'number']);
     });
   });
 
@@ -475,7 +475,7 @@ describe('Node', () => {
       const errorNode = tree.rootNode;
       const descendants = errorNode.descendantsOfType('ERROR');
       expect(
-        descendants.map((node) => node.startIndex)
+        descendants.map((node) => node!.startIndex)
       ).toEqual(
         [4]
       );

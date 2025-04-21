@@ -2288,7 +2288,8 @@ char* ts_node_find_value(TSNode node) {
 void ts_add_value(TSNode node,const char* code) {
   if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
       strcmp(ts_node_type(node),"string_literal")==0 || strcmp(ts_node_type(node),"field_expression")==0 ||
-      strcmp(ts_node_type(node),"char_literal")==0) {
+      strcmp(ts_node_type(node),"char_literal")==0 || strcmp(ts_node_type(node),"integer")==0 ||
+      strcmp(ts_node_type(node),"float")==0) {
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
     char* value = trim(ts_substr(code,start,end));
@@ -2299,7 +2300,9 @@ void ts_add_value(TSNode node,const char* code) {
       node_value_count++;
     }
   }
-  else if (strcmp(ts_node_type(node),"binary_expression")==0) {
+  else if (strcmp(ts_node_type(node),"binary_expression")==0 || 
+           strcmp(ts_node_type(node),"boolean_operator")==0 ||
+           strcmp(ts_node_type(node),"comparison_operator")==0) {
     ts_assert(ts_node_named_child_count(node)==2);
     // Remove left and right operand to get operator
     TSNode left = ts_node_named_child(node, 0);
@@ -2317,7 +2320,8 @@ void ts_add_value(TSNode node,const char* code) {
     ts_add_value(left,code);
     ts_add_value(right,code);
   }
-  else if (strcmp(ts_node_type(node),"unary_expression")==0) {
+  else if (strcmp(ts_node_type(node),"unary_expression")==0 ||
+           strcmp(ts_node_type(node),"unary_operator")==0) {
     ts_assert(ts_node_named_child_count(node)==1);
     // Find this operator is prefix or postfix
     TSNode child = ts_node_named_child(node, 0);
@@ -2361,9 +2365,38 @@ void ts_add_value(TSNode node,const char* code) {
 
     ts_add_value(child,code);
   }
+  else if (strcmp(ts_node_type(node),"string")==0 && ts_node_named_child_count(node)>=2 &&
+           strcmp(ts_node_type(ts_node_named_child(node,0)),"string_start")==0) {
+    // Python string: store whole string, include quote and prefix (e.g. f, r, b)
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    char* value = trim(ts_substr(code,start,end));
+    if (!value_exist(node)){
+      node_value_keys[node_value_count]=node;
+      node_value_values[node_value_count]=value;
+      node_value_count++;
+    }
 
-  for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
-    ts_add_value(ts_node_named_child(node,i),code);
+    for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
+      ts_add_value(ts_node_named_child(node,i),code);
+    }
+  }
+  else if (strcmp(ts_node_type(node),"string_content")==0) {
+    // Python string content: store content of string (e.g. a in f'a{b}')
+    ts_assert(ts_node_named_child_count(node)==0);
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    char* value = trim(ts_substr(code,start,end));
+    if (!value_exist(node)){
+      node_value_keys[node_value_count]=node;
+      node_value_values[node_value_count]=value;
+      node_value_count++;
+    }
+  }
+  else{
+    for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
+      ts_add_value(ts_node_named_child(node,i),code);
+    }
   }
 }
 

@@ -9,6 +9,9 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 - **Robust** enough to provide useful results even in the presence of syntax errors
 - **Dependency-free** so that the runtime library (which is written in pure C) can be embedded in any application
 
+0.21.x branch provides compatibility for Python 3.8 or 3.9 because main branch only supports Python 3.10+.
+Thus, bindings and language implementations should be 0.21.x as well.
+
 ## Links
 
 - [Documentation](https://tree-sitter.github.io)

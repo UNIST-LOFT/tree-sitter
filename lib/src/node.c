@@ -765,3 +765,39 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit) {
   self->context[1] = start_point.row;
   self->context[2] = start_point.column;
 }
+
+/** Added by FreddyYJ. */
+
+char* ts_substr(const char* str, uint32_t start, uint32_t end) {
+  char* new=ts_malloc(sizeof(char)*(end-start+1));
+  strncpy(new,str+start,end-start);
+  new[end-start]='\0';
+  return new;
+}
+
+char* ts_node_token(TSNode self,const char* full_code) {
+  uint32_t start_byte = ts_node_start_byte(self);
+  uint32_t end_byte = ts_node_end_byte(self);
+  return ts_substr(full_code,start_byte,end_byte);
+}
+
+void ts_node_print_tree(TSNode self, int32_t cur_indent) {
+    printf("%*s", cur_indent, "");
+
+  // Print the current node's type.
+  printf("- %s", ts_node_type(self));
+
+  char* value=ts_node_find_value(self);
+  if (value) {
+    printf(": %s", value);
+  }
+  printf("\n");
+
+  // Print all of the current node's children.
+  for (uint32_t i = 0; i < ts_node_named_child_count(self); i++) {
+    TSNode child = ts_node_named_child(self, i);
+    ts_node_print_tree(child, cur_indent + 2);
+  }
+}
+
+/* Addition Finished */

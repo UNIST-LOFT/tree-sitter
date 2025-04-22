@@ -654,6 +654,26 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit);
  */
 bool ts_node_eq(TSNode self, TSNode other);
 
+/** Added by FreddyYJ. */
+/**
+ * Get token of the node.
+*/
+char* ts_node_token(TSNode self, const char* full_code);
+
+/**
+ * Get value of the node.
+ * 
+ * Returns string for the node.
+*/
+char* ts_node_find_value(TSNode self);
+
+/**
+ * Print the syntax node.
+*/
+void ts_node_print_tree(TSNode self, int32_t cur_indent);
+
+/* Addition finished */
+
 /************************/
 /* Section - TreeCursor */
 /************************/

@@ -1,83 +1,62 @@
-use std::{
-    ffi::CString,
-    fs,
-    os::raw::c_char,
-    ptr, slice, str,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        LazyLock,
-    },
-};
-
+use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
+use lazy_static::lazy_static;
+use std::ffi::CString;
+use std::os::raw::c_char;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
     c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
 };
 
-use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
-
-static JS_HIGHLIGHT: LazyLock<HighlightConfiguration> =
-    LazyLock::new(|| get_highlight_config("javascript", Some("injections.scm"), &HIGHLIGHT_NAMES));
-
-static JSDOC_HIGHLIGHT: LazyLock<HighlightConfiguration> =
-    LazyLock::new(|| get_highlight_config("jsdoc", None, &HIGHLIGHT_NAMES));
-
-static HTML_HIGHLIGHT: LazyLock<HighlightConfiguration> =
-    LazyLock::new(|| get_highlight_config("html", Some("injections.scm"), &HIGHLIGHT_NAMES));
-
-static EJS_HIGHLIGHT: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
-    get_highlight_config(
+lazy_static! {
+    static ref JS_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config("javascript", Some("injections.scm"), &HIGHLIGHT_NAMES);
+    static ref JSDOC_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config("jsdoc", None, &HIGHLIGHT_NAMES);
+    static ref HTML_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config("html", Some("injections.scm"), &HIGHLIGHT_NAMES);
+    static ref EJS_HIGHLIGHT: HighlightConfiguration = get_highlight_config(
         "embedded-template",
         Some("injections-ejs.scm"),
-        &HIGHLIGHT_NAMES,
-    )
-});
-
-static RUST_HIGHLIGHT: LazyLock<HighlightConfiguration> =
-    LazyLock::new(|| get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES));
-
-static HIGHLIGHT_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
-    [
+        &HIGHLIGHT_NAMES
+    );
+    static ref RUST_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES);
+    static ref HIGHLIGHT_NAMES: Vec<String> = [
         "attribute",
         "boolean",
         "carriage-return",
         "comment",
         "constant",
-        "constant.builtin",
         "constructor",
-        "embedded",
-        "function",
         "function.builtin",
+        "function",
+        "embedded",
         "keyword",
-        "module",
-        "number",
         "operator",
-        "property",
         "property.builtin",
+        "property",
         "punctuation",
         "punctuation.bracket",
         "punctuation.delimiter",
         "punctuation.special",
         "string",
-        "string.special",
         "tag",
-        "type",
         "type.builtin",
-        "variable",
+        "type",
         "variable.builtin",
         "variable.parameter",
+        "variable",
     ]
     .iter()
     .copied()
     .map(String::from)
-    .collect()
-});
-
-static HTML_ATTRS: LazyLock<Vec<String>> = LazyLock::new(|| {
-    HIGHLIGHT_NAMES
+    .collect();
+    static ref HTML_ATTRS: Vec<String> = HIGHLIGHT_NAMES
         .iter()
         .map(|s| format!("class={s}"))
-        .collect()
-});
+        .collect();
+}
 
 #[test]
 fn test_highlighting_javascript() {
@@ -734,9 +713,7 @@ fn to_html<'a>(
             .map(Highlight),
     );
     renderer
-        .render(events, src, &|highlight, output| {
-            output.extend(HTML_ATTRS[highlight.0].as_bytes());
-        })
+        .render(events, src, &|highlight| HTML_ATTRS[highlight.0].as_bytes())
         .unwrap();
     Ok(renderer
         .lines()
@@ -771,7 +748,8 @@ fn to_token_vector<'a>(
                 for (i, l) in s.split('\n').enumerate() {
                     let l = l.trim_end_matches('\r');
                     if i > 0 {
-                        lines.push(std::mem::take(&mut line));
+                        lines.push(line);
+                        line = Vec::new();
                     }
                     if !l.is_empty() {
                         line.push((l, highlights.clone()));

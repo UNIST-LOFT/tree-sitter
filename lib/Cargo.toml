@@ -1,21 +1,16 @@
 [package]
 name = "tree-sitter"
-version.workspace = true
 description = "Rust bindings to the Tree-sitter parsing library"
+version = "0.20.10"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.76"
+rust-version.workspace = true
 readme = "binding_rust/README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
-categories = [
-  "api-bindings",
-  "external-ffi-bindings",
-  "parsing",
-  "text-editors",
-]
+categories = ["api-bindings", "parsing", "text-editors"]
 
 build = "binding_rust/build.rs"
 links = "tree-sitter"
@@ -25,42 +20,31 @@ include = [
   "/Cargo.toml",
   "/src/*.h",
   "/src/*.c",
-  "/src/portable/*",
   "/src/unicode/*",
-  "/src/wasm/*",
   "/include/tree_sitter/api.h",
 ]
 
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu"]
-
-[lints]
-workspace = true
-
 [features]
-default = ["std"]
-std = ["regex/std", "regex/perf", "regex-syntax/unicode"]
-wasm = ["std", "wasmtime-c-api"]
+wasm = ["wasmtime", "wasmtime-c-api"]
 
 [dependencies]
-regex = { version = "1.11.1", default-features = false, features = ["unicode"] }
-regex-syntax = { version = "0.8.5", default-features = false }
-tree-sitter-language = { version = "0.1", path = "language" }
-streaming-iterator = "0.1.9"
+regex.workspace = true
+
+[dependencies.wasmtime]
+version = "18.0.1"
+optional = true
+default-features = false
+features = ["cranelift"]
 
 [dependencies.wasmtime-c-api]
-version = "29.0.1"
+version = "18.0.1"
 optional = true
 package = "wasmtime-c-api-impl"
 default-features = false
-features = ["cranelift", "gc-drc"]
 
 [build-dependencies]
-bindgen = { version = "0.71.1", optional = true }
+bindgen = { version = "0.69.4", optional = true }
 cc.workspace = true
-serde_json.workspace = true
 
 [lib]
 path = "binding_rust/lib.rs"

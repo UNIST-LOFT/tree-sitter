@@ -1,81 +1,32 @@
-use std::{fs, path::Path, sync::LazyLock};
-
 use anyhow::{anyhow, Result};
-use bstr::{BStr, ByteSlice};
+use lazy_static::lazy_static;
 use regex::Regex;
+use std::fs;
 use tree_sitter::{Language, Parser, Point};
 
-static CAPTURE_NAME_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new("[\\w_\\-.]+").unwrap());
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Utf8Point {
-    pub row: usize,
-    pub column: usize,
-}
-
-impl std::fmt::Display for Utf8Point {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({}, {})", self.row, self.column)
-    }
-}
-
-impl Utf8Point {
-    #[must_use]
-    pub const fn new(row: usize, column: usize) -> Self {
-        Self { row, column }
-    }
-}
-
-#[must_use]
-pub fn to_utf8_point(point: Point, source: &[u8]) -> Utf8Point {
-    if point.column == 0 {
-        return Utf8Point::new(point.row, 0);
-    }
-
-    let bstr = BStr::new(source);
-    let line = bstr.lines_with_terminator().nth(point.row).unwrap();
-    let mut utf8_column = 0;
-
-    for (_, grapheme_end, _) in line.grapheme_indices() {
-        utf8_column += 1;
-        if grapheme_end >= point.column {
-            break;
-        }
-    }
-
-    Utf8Point {
-        row: point.row,
-        column: utf8_column,
-    }
+lazy_static! {
+    static ref CAPTURE_NAME_REGEX: Regex = Regex::new("[\\w_\\-.]+").unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct CaptureInfo {
     pub name: String,
-    pub start: Utf8Point,
-    pub end: Utf8Point,
+    pub start: Point,
+    pub end: Point,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Assertion {
-    pub position: Utf8Point,
-    pub length: usize,
+    pub position: Point,
     pub negative: bool,
     pub expected_capture_name: String,
 }
 
 impl Assertion {
     #[must_use]
-    pub const fn new(
-        row: usize,
-        col: usize,
-        length: usize,
-        negative: bool,
-        expected_capture_name: String,
-    ) -> Self {
+    pub fn new(row: usize, col: usize, negative: bool, expected_capture_name: String) -> Self {
         Self {
-            position: Utf8Point::new(row, col),
-            length,
+            position: Point::new(row, col),
             negative,
             expected_capture_name,
         }
@@ -106,18 +57,17 @@ pub fn parse_position_comments(
             let node = cursor.node();
 
             // Find every comment node.
-            if node.kind().to_lowercase().contains("comment") {
+            if node.kind().contains("comment") {
                 if let Ok(text) = node.utf8_text(source) {
                     let mut position = node.start_position();
                     if position.row > 0 {
-                        // Find the arrow character ("^" or "<-") in the comment. A left arrow
+                        // Find the arrow character ("^" or '<-") in the comment. A left arrow
                         // refers to the column where the comment node starts. An up arrow refers
                         // to its own column.
                         let mut has_left_caret = false;
                         let mut has_arrow = false;
                         let mut negative = false;
                         let mut arrow_end = 0;
-                        let mut arrow_count = 1;
                         for (i, c) in text.char_indices() {
                             arrow_end = i + 1;
                             if c == '-' && has_left_caret {
@@ -127,14 +77,6 @@ pub fn parse_position_comments(
                             if c == '^' {
                                 has_arrow = true;
                                 position.column += i;
-                                // Continue counting remaining arrows and update their end column
-                                for (_, c) in text[arrow_end..].char_indices() {
-                                    if c != '^' {
-                                        arrow_end += arrow_count - 1;
-                                        break;
-                                    }
-                                    arrow_count += 1;
-                                }
                                 break;
                             }
                             has_left_caret = c == '<';
@@ -160,8 +102,7 @@ pub fn parse_position_comments(
                         {
                             assertion_ranges.push((node.start_position(), node.end_position()));
                             result.push(Assertion {
-                                position: to_utf8_point(position, source),
-                                length: arrow_count,
+                                position,
                                 negative,
                                 expected_capture_name: mat.as_str().to_string(),
                             });
@@ -182,26 +123,16 @@ pub fn parse_position_comments(
     }
 
     // Adjust the row number in each assertion's position to refer to the line of
-    // code *above* the assertion. There can be multiple lines of assertion comments and empty
-    // lines, so the positions may have to be decremented by more than one row.
+    // code *above* the assertion. There can be multiple lines of assertion comments,
+    // so the positions may have to be decremented by more than one row.
     let mut i = 0;
-    let lines = source.lines_with_terminator().collect::<Vec<_>>();
     for assertion in &mut result {
-        let original_position = assertion.position;
         loop {
             let on_assertion_line = assertion_ranges[i..]
                 .iter()
                 .any(|(start, _)| start.row == assertion.position.row);
-            let on_empty_line = lines[assertion.position.row].len() <= assertion.position.column;
-            if on_assertion_line || on_empty_line {
-                if assertion.position.row > 0 {
-                    assertion.position.row -= 1;
-                } else {
-                    return Err(anyhow!(
-                        "Error: could not find a line that corresponds to the assertion `{}` located at {original_position}",
-                        assertion.expected_capture_name
-                    ));
-                }
+            if on_assertion_line {
+                assertion.position.row -= 1;
             } else {
                 while i < assertion_ranges.len()
                     && assertion_ranges[i].0.row < assertion.position.row
@@ -221,34 +152,25 @@ pub fn parse_position_comments(
 
 pub fn assert_expected_captures(
     infos: &[CaptureInfo],
-    path: &Path,
+    path: String,
     parser: &mut Parser,
     language: &Language,
-) -> Result<usize> {
+) -> Result<()> {
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
-    for assertion in &pairs {
-        if let Some(found) = &infos.iter().find(|p| {
-            assertion.position >= p.start
-                && (assertion.position.row < p.end.row
-                    || assertion.position.column + assertion.length - 1 < p.end.column)
+    for info in infos {
+        if let Some(found) = pairs.iter().find(|p| {
+            p.position.row == info.start.row && p.position >= info.start && p.position < info.end
         }) {
-            if assertion.expected_capture_name != found.name && found.name != "name" {
-                return Err(anyhow!(
+            if found.expected_capture_name != info.name && info.name != "name" {
+                Err(anyhow!(
                     "Assertion failed: at {}, found {}, expected {}",
-                    found.start,
-                    assertion.expected_capture_name,
-                    found.name
-                ));
+                    info.start,
+                    found.expected_capture_name,
+                    info.name
+                ))?;
             }
-        } else {
-            return Err(anyhow!(
-                "Assertion failed: could not match {} at row {}, column {}",
-                assertion.expected_capture_name,
-                assertion.position.row,
-                assertion.position.column + assertion.length - 1,
-            ));
         }
     }
-    Ok(pairs.len())
+    Ok(())
 }

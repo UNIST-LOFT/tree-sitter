@@ -1,13 +1,9 @@
-use std::{
-    future::Future,
-    pin::{pin, Pin},
-    ptr,
-    task::{self, Context, Poll, RawWaker, RawWakerVTable, Waker},
-};
-
-use tree_sitter::Parser;
-
 use super::helpers::fixtures::get_language;
+use std::future::Future;
+use std::pin::{pin, Pin};
+use std::ptr;
+use std::task::{self, Context, Poll, RawWaker, RawWakerVTable, Waker};
+use tree_sitter::Parser;
 
 #[test]
 fn test_node_in_fut() {
@@ -22,6 +18,7 @@ fn test_node_in_fut() {
         let root_ref = &root;
 
         let fut_val_fn = || async {
+            // eprintln!("fut_val_fn: {}", root.child(0).unwrap().kind());
             yield_now().await;
             root.child(0).unwrap().kind()
         };
@@ -29,6 +26,7 @@ fn test_node_in_fut() {
         yield_now().await;
 
         let fut_ref_fn = || async {
+            // eprintln!("fut_ref_fn: {}", root_ref.child(0).unwrap().kind());
             yield_now().await;
             root_ref.child(0).unwrap().kind()
         };
@@ -38,11 +36,13 @@ fn test_node_in_fut() {
         assert_eq!(f1, f2);
 
         let fut_val = async {
+            // eprintln!("fut_val: {}", root.child(0).unwrap().kind());
             yield_now().await;
             root.child(0).unwrap().kind()
         };
 
         let fut_ref = async {
+            // eprintln!("fut_ref: {}", root_ref.child(0).unwrap().kind());
             yield_now().await;
             root_ref.child(0).unwrap().kind()
         };
@@ -54,6 +54,7 @@ fn test_node_in_fut() {
         f1
     })
     .join();
+    // eprintln!("pended: {pended:?}");
     assert_eq!(ret, "comment");
     assert_eq!(pended, 5);
 }
@@ -210,6 +211,7 @@ where
         match future.as_mut().poll(&mut cx) {
             Poll::Pending => pending += 1,
             Poll::Ready(r) => {
+                // eprintln!("ready, pended: {pending}");
                 break r;
             }
         }
@@ -238,7 +240,7 @@ async fn yield_now() {
     SimpleYieldNow { yielded: false }.await;
 }
 
-pub const fn noop_waker() -> Waker {
+pub fn noop_waker() -> Waker {
     const VTABLE: RawWakerVTable = RawWakerVTable::new(
         // Cloning just returns a new no-op raw waker
         |_| RAW,

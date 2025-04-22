@@ -8,6 +8,8 @@ void *tree_sitter_inverted_external_token_external_scanner_create() { return NUL
 
 void tree_sitter_inverted_external_token_external_scanner_destroy(void *payload) {}
 
+void tree_sitter_inverted_external_token_external_scanner_reset(void *payload) {}
+
 unsigned tree_sitter_inverted_external_token_external_scanner_serialize(
   void *payload,
   char *buffer
@@ -20,10 +22,7 @@ void tree_sitter_inverted_external_token_external_scanner_deserialize(
 ) {}
 
 bool tree_sitter_inverted_external_token_external_scanner_scan(
-  void *payload,
-  TSLexer *lexer,
-  const bool *valid_symbols
-) {
+  void *payload, TSLexer *lexer, const bool *whitelist) {
   while (lexer->lookahead == ' ' || lexer->lookahead == '\r') {
     lexer->advance(lexer, true);
   }

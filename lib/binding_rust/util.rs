@@ -1,6 +1,5 @@
-use core::ffi::c_void;
-
 use super::FREE_FN;
+use std::os::raw::c_void;
 
 /// A raw pointer and a length, exposed as an iterator.
 pub struct CBufferIter<T> {

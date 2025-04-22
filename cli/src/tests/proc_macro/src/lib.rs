@@ -10,8 +10,8 @@ use syn::{
 pub fn retry(args: TokenStream, input: TokenStream) -> TokenStream {
     let count = parse_macro_input!(args as LitInt);
     let input = parse_macro_input!(input as ItemFn);
-    let attrs = &input.attrs;
-    let name = &input.sig.ident;
+    let attrs = input.attrs.clone();
+    let name = input.sig.ident.clone();
 
     TokenStream::from(quote! {
         #(#attrs),*
@@ -98,8 +98,8 @@ pub fn test_with_seed(args: TokenStream, input: TokenStream) -> TokenStream {
     let seed_fn = seed_fn.iter();
 
     let func = parse_macro_input!(input as ItemFn);
-    let attrs = &func.attrs;
-    let name = &func.sig.ident;
+    let attrs = func.attrs.clone();
+    let name = func.sig.ident.clone();
 
     TokenStream::from(quote! {
         #[test]

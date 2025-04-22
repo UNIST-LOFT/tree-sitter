@@ -1,7 +1,20 @@
-use std::{env, fs, path::PathBuf};
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+    println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
+    if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
+        if let (Some(clang_path), Some(scan_build_path)) = (which("clang"), which("scan-build")) {
+            let clang_path = clang_path.to_str().unwrap();
+            let scan_build_path = scan_build_path.to_str().unwrap();
+            env::set_var(
+                "CC",
+                format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc",),
+            );
+        }
+    }
 
     #[cfg(feature = "bindgen")]
     generate_bindings(&out_dir);
@@ -16,13 +29,10 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_WASM");
     if env::var("CARGO_FEATURE_WASM").is_ok() {
-        config
-            .define("TREE_SITTER_FEATURE_WASM", "")
-            .define("static_assert(...)", "")
-            .include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap());
+        config.define("TREE_SITTER_FEATURE_WASM", "");
     }
 
-    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR"));
     let include_path = manifest_path.join("include");
     let src_path = manifest_path.join("src");
     let wasm_path = src_path.join("wasm");
@@ -33,17 +43,13 @@ fn main() {
     }
 
     config
-        .flag_if_supported("-std=c11")
+        .flag_if_supported("-std=c99")
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
         .flag_if_supported("-Wno-unused-parameter")
-        .flag_if_supported("-Wno-incompatible-pointer-types")
         .include(&src_path)
         .include(&wasm_path)
         .include(&include_path)
-        .define("_POSIX_C_SOURCE", "200112L")
-        .define("_DEFAULT_SOURCE", None)
-        .warnings(false)
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");
 
@@ -51,34 +57,7 @@ fn main() {
 }
 
 #[cfg(feature = "bindgen")]
-fn generate_bindings(out_dir: &std::path::Path) {
-    use std::{process::Command, str::FromStr};
-
-    use bindgen::RustTarget;
-
-    let output = Command::new("cargo")
-        .args(["metadata", "--format-version", "1"])
-        .output()
-        .unwrap();
-
-    let metadata = serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap();
-
-    let Some(rust_version) = metadata
-        .get("packages")
-        .and_then(|packages| packages.as_array())
-        .and_then(|packages| {
-            packages.iter().find_map(|package| {
-                if package["name"] == "tree-sitter" {
-                    package.get("rust_version").and_then(|v| v.as_str())
-                } else {
-                    None
-                }
-            })
-        })
-    else {
-        panic!("Failed to find tree-sitter package in cargo metadata");
-    };
-
+fn generate_bindings(out_dir: &Path) {
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
     println!("cargo:rerun-if-changed={HEADER_PATH}");
@@ -105,17 +84,24 @@ fn generate_bindings(out_dir: &std::path::Path) {
         .allowlist_var("^TREE_SITTER.*")
         .no_copy(no_copy.join("|"))
         .prepend_enum_name(false)
-        .use_core()
-        .clang_arg("-D TREE_SITTER_FEATURE_WASM")
-        .rust_target(RustTarget::from_str(rust_version).unwrap())
         .generate()
         .expect("Failed to generate bindings");
 
     let bindings_rs = out_dir.join("bindings.rs");
-    bindings.write_to_file(&bindings_rs).unwrap_or_else(|_| {
-        panic!(
-            "Failed to write bindings into path: {}",
-            bindings_rs.display()
-        )
-    });
+    bindings
+        .write_to_file(&bindings_rs)
+        .unwrap_or_else(|_| panic!("Failed to write bindings into path: {bindings_rs:?}"));
+}
+
+fn which(exe_name: impl AsRef<Path>) -> Option<PathBuf> {
+    env::var_os("PATH").and_then(|paths| {
+        env::split_paths(&paths).find_map(|dir| {
+            let full_path = dir.join(&exe_name);
+            if full_path.is_file() {
+                Some(full_path)
+            } else {
+                None
+            }
+        })
+    })
 }

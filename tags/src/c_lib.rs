@@ -1,11 +1,11 @@
-use std::{
-    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice, str,
-    sync::atomic::AtomicUsize,
-};
-
-use tree_sitter::Language;
-
 use super::{Error, TagsConfiguration, TagsContext};
+use std::collections::HashMap;
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use std::process::abort;
+use std::sync::atomic::AtomicUsize;
+use std::{fmt, slice, str};
+use tree_sitter::Language;
 
 const BUFFER_TAGS_RESERVE_CAPACITY: usize = 100;
 const BUFFER_DOCS_RESERVE_CAPACITY: usize = 1024;
@@ -40,8 +40,8 @@ pub struct TSTag {
     pub line_end_byte: u32,
     pub start_point: TSPoint,
     pub end_point: TSPoint,
-    pub utf16_start_column: u32,
-    pub utf16_end_column: u32,
+    pub utf16_start_colum: u32,
+    pub utf16_end_colum: u32,
     pub docs_start_byte: u32,
     pub docs_end_byte: u32,
     pub syntax_type_id: u32,
@@ -198,8 +198,8 @@ pub unsafe extern "C" fn ts_tagger_tag(
                     row: tag.span.end.row as u32,
                     column: tag.span.end.column as u32,
                 },
-                utf16_start_column: tag.utf16_column_range.start as u32,
-                utf16_end_column: tag.utf16_column_range.end as u32,
+                utf16_start_colum: tag.utf16_column_range.start as u32,
+                utf16_end_colum: tag.utf16_column_range.end as u32,
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,
                 syntax_type_id: tag.syntax_type_id,

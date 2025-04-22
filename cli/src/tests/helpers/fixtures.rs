@@ -1,25 +1,23 @@
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
-
 use anyhow::Context;
+use lazy_static::lazy_static;
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 use tree_sitter::Language;
-use tree_sitter_generate::{ALLOC_HEADER, ARRAY_HEADER};
 use tree_sitter_highlight::HighlightConfiguration;
-use tree_sitter_loader::{CompileConfig, Loader};
+use tree_sitter_loader::Loader;
 use tree_sitter_tags::TagsConfiguration;
 
 include!("./dirs.rs");
 
-static TEST_LOADER: LazyLock<Loader> = LazyLock::new(|| {
-    let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
-    if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
-        loader.debug_build(true);
-    }
-    loader
-});
+lazy_static! {
+    static ref TEST_LOADER: Loader = {
+        let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+        if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
+            loader.use_debug_build(true);
+        }
+        loader
+    };
+}
 
 pub fn test_loader() -> &'static Loader {
     &TEST_LOADER
@@ -34,10 +32,13 @@ pub fn scratch_dir() -> &'static Path {
 }
 
 pub fn get_language(name: &str) -> Language {
-    let src_dir = GRAMMARS_DIR.join(name).join("src");
-    let mut config = CompileConfig::new(&src_dir, None, None);
-    config.header_paths.push(&HEADER_DIR);
-    TEST_LOADER.load_language_at_path(config).unwrap()
+    TEST_LOADER
+        .load_language_at_path(
+            &GRAMMARS_DIR.join(name).join("src"),
+            &[&HEADER_DIR, &GRAMMARS_DIR.join(name).join("src")],
+            None,
+        )
+        .unwrap()
 }
 
 pub fn get_language_queries_path(language_name: &str) -> PathBuf {
@@ -82,7 +83,7 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
     fs::create_dir_all(&src_dir).unwrap();
 
     let parser_path = src_dir.join("parser.c");
-    if !fs::read_to_string(&parser_path).is_ok_and(|content| content == parser_code) {
+    if !fs::read_to_string(&parser_path).map_or(false, |content| content == parser_code) {
         fs::write(&parser_path, parser_code).unwrap();
     }
 
@@ -91,7 +92,8 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         if scanner_path.exists() {
             let scanner_code = fs::read_to_string(&scanner_path).unwrap();
             let scanner_copy_path = src_dir.join("scanner.c");
-            if !fs::read_to_string(&scanner_copy_path).is_ok_and(|content| content == scanner_code)
+            if !fs::read_to_string(&scanner_copy_path)
+                .map_or(false, |content| content == scanner_code)
             {
                 fs::write(&scanner_copy_path, scanner_code).unwrap();
             }
@@ -105,17 +107,14 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
 
     let header_path = src_dir.join("tree_sitter");
     fs::create_dir_all(&header_path).unwrap();
-
-    for (file, content) in [
-        ("alloc.h", ALLOC_HEADER),
-        ("array.h", ARRAY_HEADER),
-        ("parser.h", tree_sitter::PARSER_HEADER),
-    ] {
-        let file = header_path.join(file);
-        fs::write(&file, content)
-            .with_context(|| format!("Failed to write {:?}", file.file_name().unwrap()))
-            .unwrap();
-    }
+    fs::write(header_path.join("parser.h"), tree_sitter::PARSER_HEADER)
+        .with_context(|| {
+            format!(
+                "Failed to write {:?}",
+                header_path.join("parser.h").file_name().unwrap()
+            )
+        })
+        .unwrap();
 
     let paths_to_check = if let Some(scanner_path) = &scanner_path {
         vec![parser_path, scanner_path.clone()]
@@ -123,9 +122,7 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         vec![parser_path]
     };
 
-    let mut config = CompileConfig::new(&src_dir, Some(&paths_to_check), None);
-    config.header_paths = vec![&HEADER_DIR];
-    config.name = name.to_string();
-
-    TEST_LOADER.load_language_at_path_with_name(config).unwrap()
+    TEST_LOADER
+        .load_language_at_path_with_name(&src_dir, &[&HEADER_DIR], name, Some(&paths_to_check))
+        .unwrap()
 }

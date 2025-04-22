@@ -1,74 +1,66 @@
-use std::{
-    collections::BTreeMap,
-    env, fs,
-    path::{Path, PathBuf},
-    str,
-    sync::LazyLock,
-    time::Instant,
-};
-
 use anyhow::Context;
+use lazy_static::lazy_static;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
+use std::{env, fs, str, usize};
 use tree_sitter::{Language, Parser, Query};
-use tree_sitter_loader::{CompileConfig, Loader};
+use tree_sitter_loader::Loader;
 
 include!("../src/tests/helpers/dirs.rs");
 
-static LANGUAGE_FILTER: LazyLock<Option<String>> =
-    LazyLock::new(|| env::var("TREE_SITTER_BENCHMARK_LANGUAGE_FILTER").ok());
-static EXAMPLE_FILTER: LazyLock<Option<String>> =
-    LazyLock::new(|| env::var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER").ok());
-static REPETITION_COUNT: LazyLock<usize> = LazyLock::new(|| {
-    env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT")
+lazy_static! {
+    static ref LANGUAGE_FILTER: Option<String> =
+        env::var("TREE_SITTER_BENCHMARK_LANGUAGE_FILTER").ok();
+    static ref EXAMPLE_FILTER: Option<String> =
+        env::var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER").ok();
+    static ref REPETITION_COUNT: usize = env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT")
         .map(|s| s.parse::<usize>().unwrap())
-        .unwrap_or(5)
-});
-static TEST_LOADER: LazyLock<Loader> =
-    LazyLock::new(|| Loader::with_parser_lib_path(SCRATCH_DIR.clone()));
+        .unwrap_or(5);
+    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+    static ref EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)> = {
+        fn process_dir(result: &mut BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>, dir: &Path) {
+            if dir.join("grammar.js").exists() {
+                let relative_path = dir.strip_prefix(GRAMMARS_DIR.as_path()).unwrap();
+                let (example_paths, query_paths) =
+                    result.entry(relative_path.to_owned()).or_default();
 
-#[allow(clippy::type_complexity)]
-static EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: LazyLock<
-    BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>,
-> = LazyLock::new(|| {
-    fn process_dir(result: &mut BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>, dir: &Path) {
-        if dir.join("grammar.js").exists() {
-            let relative_path = dir.strip_prefix(GRAMMARS_DIR.as_path()).unwrap();
-            let (example_paths, query_paths) = result.entry(relative_path.to_owned()).or_default();
+                if let Ok(example_files) = fs::read_dir(dir.join("examples")) {
+                    example_paths.extend(example_files.filter_map(|p| {
+                        let p = p.unwrap().path();
+                        if p.is_file() {
+                            Some(p)
+                        } else {
+                            None
+                        }
+                    }));
+                }
 
-            if let Ok(example_files) = fs::read_dir(dir.join("examples")) {
-                example_paths.extend(example_files.filter_map(|p| {
-                    let p = p.unwrap().path();
-                    if p.is_file() {
-                        Some(p)
-                    } else {
-                        None
+                if let Ok(query_files) = fs::read_dir(dir.join("queries")) {
+                    query_paths.extend(query_files.filter_map(|p| {
+                        let p = p.unwrap().path();
+                        if p.is_file() {
+                            Some(p)
+                        } else {
+                            None
+                        }
+                    }));
+                }
+            } else {
+                for entry in fs::read_dir(dir).unwrap() {
+                    let entry = entry.unwrap().path();
+                    if entry.is_dir() {
+                        process_dir(result, &entry);
                     }
-                }));
-            }
-
-            if let Ok(query_files) = fs::read_dir(dir.join("queries")) {
-                query_paths.extend(query_files.filter_map(|p| {
-                    let p = p.unwrap().path();
-                    if p.is_file() {
-                        Some(p)
-                    } else {
-                        None
-                    }
-                }));
-            }
-        } else {
-            for entry in fs::read_dir(dir).unwrap() {
-                let entry = entry.unwrap().path();
-                if entry.is_dir() {
-                    process_dir(result, &entry);
                 }
             }
         }
-    }
 
-    let mut result = BTreeMap::new();
-    process_dir(&mut result, &GRAMMARS_DIR);
-    result
-});
+        let mut result = BTreeMap::new();
+        process_dir(&mut result, &GRAMMARS_DIR);
+        result
+    };
+}
 
 fn main() {
     let max_path_length = EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR
@@ -112,7 +104,7 @@ fn main() {
 
             parse(path, max_path_length, |source| {
                 Query::new(&language, str::from_utf8(source).unwrap())
-                    .with_context(|| format!("Query file path: {}", path.display()))
+                    .with_context(|| format!("Query file path: {path:?}"))
                     .expect("Failed to parse query");
             });
         }
@@ -201,7 +193,7 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
     );
 
     let source_code = fs::read(path)
-        .with_context(|| format!("Failed to read {}", path.display()))
+        .with_context(|| format!("Failed to read {path:?}"))
         .unwrap();
     let time = Instant::now();
     for _ in 0..*REPETITION_COUNT {
@@ -218,9 +210,9 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
 }
 
 fn get_language(path: &Path) -> Language {
-    let src_path = GRAMMARS_DIR.join(path).join("src");
+    let src_dir = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
-        .load_language_at_path(CompileConfig::new(&src_path, None, None))
-        .with_context(|| format!("Failed to load language at path {}", src_path.display()))
+        .load_language_at_path(&src_dir, &[&src_dir], None)
+        .with_context(|| format!("Failed to load language at path {src_dir:?}"))
         .unwrap()
 }

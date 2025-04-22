@@ -81,6 +81,7 @@ fn record_alloc(ptr: *mut c_void) {
 }
 
 fn record_dealloc(ptr: *mut c_void) {
+    assert!(!ptr.is_null(), "Zero pointer deallocation!");
     RECORDER.with(|recorder| {
         if recorder.enabled.load(SeqCst) {
             recorder
@@ -108,7 +109,7 @@ unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_
     let result = realloc(ptr, size);
     if ptr.is_null() {
         record_alloc(result);
-    } else if !core::ptr::eq(ptr, result) {
+    } else if ptr != result {
         record_dealloc(ptr);
         record_alloc(result);
     }

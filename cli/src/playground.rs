@@ -1,3 +1,5 @@
+use super::wasm;
+use anyhow::{anyhow, Context, Result};
 use std::{
     borrow::Cow,
     env, fs,
@@ -5,14 +7,10 @@ use std::{
     path::{Path, PathBuf},
     str::{self, FromStr as _},
 };
-
-use anyhow::{anyhow, Context, Result};
 use tiny_http::{Header, Response, Server};
 
-use super::wasm;
-
 macro_rules! optional_resource {
-    ($name:tt, $path:tt) => {
+    ($name: tt, $path: tt) => {
         #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
         fn $name(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
@@ -33,9 +31,9 @@ macro_rules! optional_resource {
     };
 }
 
-optional_resource!(get_playground_js, "docs/src/assets/js/playground.js");
-optional_resource!(get_lib_js, "lib/binding_web/web-tree-sitter.js");
-optional_resource!(get_lib_wasm, "lib/binding_web/web-tree-sitter.wasm");
+optional_resource!(get_playground_js, "docs/assets/js/playground.js");
+optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
+optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
 fn get_main_html(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
     tree_sitter_dir.map_or(
@@ -79,16 +77,16 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
                     response(&playground_js, &js_header)
                 }
             }
-            "/web-tree-sitter.js" => {
+            "/tree-sitter.js" => {
                 if lib_js.is_empty() {
-                    redirect("https://tree-sitter.github.io/web-tree-sitter.js")
+                    redirect("https://tree-sitter.github.io/tree-sitter.js")
                 } else {
                     response(&lib_js, &js_header)
                 }
             }
-            "/web-tree-sitter.wasm" => {
+            "/tree-sitter.wasm" => {
                 if lib_wasm.is_empty() {
-                    redirect("https://tree-sitter.github.io/web-tree-sitter.wasm")
+                    redirect("https://tree-sitter.github.io/tree-sitter.wasm")
                 } else {
                     response(&lib_wasm, &wasm_header)
                 }

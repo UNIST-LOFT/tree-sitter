@@ -12,7 +12,7 @@ Rust bindings to the [Tree-sitter][] parsing library.
 First, create a parser:
 
 ```rust
-use tree_sitter::{InputEdit, Language, Parser, Point};
+use tree_sitter::{Parser, Language};
 
 let mut parser = Parser::new();
 ```
@@ -28,21 +28,21 @@ Then, add a language as a dependency:
 
 ```toml
 [dependencies]
-tree-sitter = "0.24"
-tree-sitter-rust = "0.23"
+tree-sitter = "0.20.10"
+tree-sitter-rust = "0.20.3"
 ```
 
 To then use a language, you assign them to the parser.
 
 ```rust
-parser.set_language(&tree_sitter_rust::LANGUAGE.into()).expect("Error loading Rust grammar");
+parser.set_language(tree_sitter_rust::language()).expect("Error loading Rust grammar");
 ```
 
 Now you can parse source code:
 
 ```rust
 let source_code = "fn test() {}";
-let mut tree = parser.parse(source_code, None).unwrap();
+let tree = parser.parse(source_code, None).unwrap();
 let root_node = tree.root_node();
 
 assert_eq!(root_node.kind(), "source_file");
@@ -56,7 +56,7 @@ Once you have a syntax tree, you can update it when your source code changes.
 Passing in the previous edited tree makes `parse` run much more quickly:
 
 ```rust
-let new_source_code = "fn test(a: u32) {}";
+let new_source_code = "fn test(a: u32) {}"
 
 tree.edit(&InputEdit {
   start_byte: 8,
@@ -85,14 +85,14 @@ let lines = &[
 
 // Parse the source code using a custom callback. The callback is called
 // with both a byte offset and a row/column offset.
-let tree = parser.parse_with(&mut |_byte: usize, position: Point| -> &[u8] {
+let tree = parser.parse_with(&mut |_byte: u32, position: Point| -> &[u8] {
     let row = position.row as usize;
     let column = position.column as usize;
     if row < lines.len() {
         if column < lines[row].as_bytes().len() {
             &lines[row].as_bytes()[column..]
         } else {
-            b"\n"
+            "\n".as_bytes()
         }
     } else {
         &[]
@@ -105,55 +105,4 @@ assert_eq!(
 );
 ```
 
-## Using WASM Grammar Files
-
-> Requires the feature **wasm** to be enabled.
-
-First, create a parser with a WASM store:
-
-```rust
-use tree_sitter::{wasmtime::Engine, Parser, WasmStore};
-
-let engine = Engine::default();
-let store = WasmStore::new(&engine).unwrap();
-
-let mut parser = Parser::new();
-parser.set_wasm_store(store).unwrap();
-```
-
-Then, load the language from a WASM file:
-
-```rust
-const JAVASCRIPT_GRAMMAR: &[u8] = include_bytes!("path/to/tree-sitter-javascript.wasm");
-
-let mut store = WasmStore::new(&engine).unwrap();
-let javascript = store
-    .load_language("javascript", JAVASCRIPT_GRAMMAR)
-    .unwrap();
-
-// The language may be loaded from a different WasmStore than the one set on
-// the parser but it must use the same underlying WasmEngine.
-parser.set_language(&javascript).unwrap();
-```
-
-Now you can parse source code:
-
-```rust
-let source_code = "let x = 1;";
-let tree = parser.parse(source_code, None).unwrap();
-
-assert_eq!(
-    tree.root_node().to_sexp(),
-    "(program (lexical_declaration (variable_declarator name: (identifier) value: (number))))"
-);
-```
-
 [tree-sitter]: https://github.com/tree-sitter/tree-sitter
-
-## Features
-
-- **std** - This feature is enabled by default and allows `tree-sitter` to use the standard library.
-  - Error types implement the `std::error:Error` trait.
-  - `regex` performance optimizations are enabled.
-  - The DOT graph methods are enabled.
-- **wasm** - This feature allows `tree-sitter` to be built for Wasm targets using the `wasmtime-c-api` crate.

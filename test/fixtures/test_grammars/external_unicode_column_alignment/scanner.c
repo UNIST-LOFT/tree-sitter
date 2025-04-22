@@ -1,4 +1,3 @@
-#include "tree_sitter/alloc.h"
 #include "tree_sitter/parser.h"
 
 #include <wctype.h>
@@ -15,15 +14,15 @@ typedef struct {
 } Scanner;
 
 void *tree_sitter_external_unicode_column_alignment_external_scanner_create() {
-  Scanner *scanner = ts_malloc(sizeof(Scanner));
+  Scanner *scanner = malloc(sizeof(Scanner));
   *scanner = (Scanner){
-    .column = -1
+    .column = -1 
   };
   return scanner;
 }
 
 void tree_sitter_external_unicode_column_alignment_external_scanner_destroy(void *payload) {
-  ts_free(payload);
+  free(payload);
 }
 
 unsigned tree_sitter_external_unicode_column_alignment_external_scanner_serialize(
@@ -51,7 +50,7 @@ void tree_sitter_external_unicode_column_alignment_external_scanner_deserialize(
 bool tree_sitter_external_unicode_column_alignment_external_scanner_scan(
   void *payload,
   TSLexer *lexer,
-  const bool *valid_symbols
+  const bool *whitelist
 ) {
   Scanner *scanner = payload;
   // U+25A1 is unicode codepoint □

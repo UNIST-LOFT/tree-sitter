@@ -5,14 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.93"
-quote = "1.0.38"
+proc-macro2 = "1.0.78"
+quote = "1.0.35"
 rand = "0.8.5"
-syn = { version = "2.0.96", features = ["full"] }
+syn = { version = "2.0.48", features = ["full"] }

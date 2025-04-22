@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
-#![allow(clippy::missing_const_for_fn)]
 
 #[cfg(feature = "bindgen")]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -10,23 +9,19 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 include!("./bindings.rs");
 
 #[cfg(unix)]
-#[cfg(feature = "std")]
 extern "C" {
     pub(crate) fn _ts_dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
 }
 
 #[cfg(windows)]
-#[cfg(feature = "std")]
 extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
-use core::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
-
 use crate::{
-    Language, LookaheadIterator, Node, ParseState, Parser, Query, QueryCursor, QueryCursorState,
-    QueryError, Tree, TreeCursor,
+    Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
 };
+use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 impl Language {
     /// Reconstructs a [`Language`] from a raw pointer.
@@ -70,24 +65,6 @@ impl Parser {
     }
 }
 
-impl ParseState {
-    /// Reconstructs a [`ParseState`] from a raw pointer
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must be non-null.
-    #[must_use]
-    pub const unsafe fn from_raw(ptr: *mut TSParseState) -> Self {
-        Self(NonNull::new_unchecked(ptr))
-    }
-
-    /// Consumes the [`ParseState`], returning a raw pointer to the underlying C structure.
-    #[must_use]
-    pub fn into_raw(self) -> *mut TSParseState {
-        ManuallyDrop::new(self).0.as_ptr()
-    }
-}
-
 impl Tree {
     /// Reconstructs a [`Tree`] from a raw pointer.
     ///
@@ -106,14 +83,14 @@ impl Tree {
     }
 }
 
-impl Node<'_> {
+impl<'tree> Node<'tree> {
     /// Reconstructs a [`Node`] from a raw pointer.
     ///
     /// # Safety
     ///
     /// `ptr` must be non-null.
     #[must_use]
-    pub const unsafe fn from_raw(raw: TSNode) -> Self {
+    pub const unsafe fn from_raw(raw: TSNode) -> Node<'tree> {
         Self(raw, PhantomData)
     }
 
@@ -124,14 +101,14 @@ impl Node<'_> {
     }
 }
 
-impl TreeCursor<'_> {
+impl<'a> TreeCursor<'a> {
     /// Reconstructs a [`TreeCursor`] from a raw pointer.
     ///
     /// # Safety
     ///
     /// `ptr` must be non-null.
     #[must_use]
-    pub const unsafe fn from_raw(raw: TSTreeCursor) -> Self {
+    pub const unsafe fn from_raw(raw: TSTreeCursor) -> TreeCursor<'a> {
         Self(raw, PhantomData)
     }
 
@@ -176,24 +153,6 @@ impl QueryCursor {
     #[must_use]
     pub fn into_raw(self) -> *mut TSQueryCursor {
         ManuallyDrop::new(self).ptr.as_ptr()
-    }
-}
-
-impl QueryCursorState {
-    /// Reconstructs a [`QueryCursorState`] from a raw pointer.
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must be non-null.
-    #[must_use]
-    pub const unsafe fn from_raw(ptr: *mut TSQueryCursorState) -> Self {
-        Self(NonNull::new_unchecked(ptr))
-    }
-
-    /// Consumes the [`QueryCursorState`], returning a raw pointer to the underlying C structure.
-    #[must_use]
-    pub fn into_raw(self) -> *mut TSQueryCursorState {
-        ManuallyDrop::new(self).0.as_ptr()
     }
 }
 

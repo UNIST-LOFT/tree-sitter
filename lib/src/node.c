@@ -791,6 +791,10 @@ void ts_node_print_tree(TSNode self, int32_t cur_indent) {
   if (value) {
     printf(": %s", value);
   }
+  char* value_2=ts_node_find_value_2(self);
+  if (value_2) {
+    printf(", %s", value_2);
+  }
   printf("\n");
 
   // Print all of the current node's children.

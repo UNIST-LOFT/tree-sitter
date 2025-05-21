@@ -2122,6 +2122,10 @@ uint32_t node_value_count=0;
 TSNode node_value_keys[10000];
 char* node_value_values[10000];
 
+uint32_t node_value_2_count=0;
+TSNode node_value_2_keys[10000];
+char* node_value_2_values[10000];
+
 char *trim_left(char *str) {
     while (*str) {
         if (isspace(*str)) {
@@ -2162,10 +2166,28 @@ uint8_t value_exist(TSNode node) {
   return 0;
 }
 
+uint8_t value_2_exist(TSNode node) {
+  for (uint32_t i=0;i<node_value_2_count;i++) {
+    if (ts_node_eq(node,node_value_2_keys[i])) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 char* ts_node_find_value(TSNode node) {
   for (uint32_t i=0;i<node_value_count;i++) {
     if (ts_node_eq(node,node_value_keys[i])) {
       return node_value_values[i];
+    }
+  }
+  return NULL;
+}
+
+char* ts_node_find_value_2(TSNode node) {
+  for (uint32_t i=0;i<node_value_2_count;i++) {
+    if (ts_node_eq(node,node_value_2_keys[i])) {
+      return node_value_2_values[i];
     }
   }
   return NULL;
@@ -2187,8 +2209,7 @@ void ts_add_value(TSNode node,const char* code) {
     }
   }
   else if (strcmp(ts_node_type(node),"binary_expression")==0 || 
-           strcmp(ts_node_type(node),"boolean_operator")==0 ||
-           strcmp(ts_node_type(node),"comparison_operator")==0) {
+           strcmp(ts_node_type(node),"boolean_operator")==0) {
     assert(ts_node_named_child_count(node)==2);
     // Remove left and right operand to get operator
     TSNode left = ts_node_named_child(node, 0);
@@ -2205,6 +2226,54 @@ void ts_add_value(TSNode node,const char* code) {
 
     ts_add_value(left,code);
     ts_add_value(right,code);
+  }
+  else if (strcmp(ts_node_type(node),"comparison_operator")==0) {
+    if (ts_node_named_child_count(node)==2){
+      assert(ts_node_named_child_count(node)==2);
+      // Remove left and right operand to get operator
+      TSNode left = ts_node_named_child(node, 0);
+      uint32_t left_end = ts_node_end_byte(left);
+      TSNode right = ts_node_named_child(node, 1);
+      uint32_t right_start = ts_node_start_byte(right);
+      char* op = trim(ts_substr(code,left_end,right_start));
+
+      if (!value_exist(node)){
+        node_value_keys[node_value_count]=node;
+        node_value_values[node_value_count]=op;
+        node_value_count++;
+      }
+
+      ts_add_value(left,code);
+      ts_add_value(right,code);
+    }
+    else {
+      assert(ts_node_named_child_count(node)==3);
+      // Python comparison operator sometimes has 3 operands (e.g. a < b < c)
+      // In this case, node.value is first operator + middle operand + second operator
+      TSNode first = ts_node_named_child(node, 0);
+      uint32_t first_end = ts_node_end_byte(first);
+      TSNode second = ts_node_named_child(node, 1);
+      uint32_t second_start = ts_node_start_byte(second);
+      uint32_t second_end = ts_node_end_byte(second);
+      TSNode third = ts_node_named_child(node, 2);
+      uint32_t third_start = ts_node_start_byte(third);
+      char* op_1 = trim(ts_substr(code,first_end,second_start));
+      char* op_2 = trim(ts_substr(code,second_end,third_start));
+
+      if (!value_exist(node)){
+        node_value_keys[node_value_count]=node;
+        node_value_values[node_value_count]=op_1;
+        node_value_count++;
+
+        node_value_2_keys[node_value_2_count]=node;
+        node_value_2_values[node_value_2_count]=op_2;
+        node_value_2_count++;
+      }
+
+      ts_add_value(first,code);
+      ts_add_value(second,code);
+      ts_add_value(third,code);
+    }
   }
   else if (strcmp(ts_node_type(node),"unary_expression")==0 ||
            strcmp(ts_node_type(node),"unary_operator")==0) {

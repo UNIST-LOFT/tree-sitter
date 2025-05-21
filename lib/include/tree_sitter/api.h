@@ -668,6 +668,14 @@ char* ts_node_token(TSNode self, const char* full_code);
 char* ts_node_find_value(TSNode self);
 
 /**
+ * Get second value of the node.
+ * 
+ * Some nodes can have two values, such as a < b < c in Python.
+ * Returns string for the node.
+*/
+char* ts_node_find_value_2(TSNode self);
+
+/**
  * Print the syntax node.
 */
 void ts_node_print_tree(TSNode self, int32_t cur_indent);

@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+#define TREE_SITTER_MAJOR_VERSION 23
 /****************************/
 /* Section - ABI Versioning */
 /****************************/

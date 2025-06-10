@@ -1281,6 +1281,101 @@ void ts_set_allocator(
 	void (*new_free)(void *)
 );
 
+/*************************************/
+/* Section - Interpreter (FreddyYJ)  */
+/*************************************/
+
+/**
+ * Type of the TSNodeObject.
+ * 
+ * TSNodeObjectTypePointer represents `void*`.
+ */
+typedef enum TSNodeObjectType {
+  TSNodeObjectTypeInt,
+  TSNodeObjectTypeUInt,
+  TSNodeObjectTypeDouble,
+  TSNodeObjectTypePointer,
+
+  // String Literal
+  TSNodeObjectTypeString,
+  // Char Literal
+  TSNodeObjectTypeChar,
+} TSNodeObjectType;
+
+/**
+ * Runtime object for the TSNode used to 'execute' TSNode with runtime information.
+ * 
+ * For example, if the name is "a" and the type is `TSNodeObjectTypeInt32`, 
+ * access the actual value with the `value.int32`.
+ * 
+ * Do not change the value directly after the object is created.
+ * 
+ * Member value is the union that can store int, uint, double, and pointer.
+ * Type is the type of the value.
+ * 
+ * If the name is NULL, this object is the result of the operation.
+ * For example, if this object is the result of `a + b`, the name is NULL and the value is the result of `a + b`.
+ * 
+ * If this object represents number literal, the name is the string literal of the number.
+ * For example, if this object represents `123`, the name is "123" and the value is 123.
+ * 
+ * If this object represents string literal, the `name` is the string literal, `type` is `TSNodeObjectTypeString`, 
+ * and `value` is not assigned.
+ * 
+ * If this object represents boolean value/variable, actual value is stored in `value.uint32`.
+ * If the value is 0, it is false. Otherwise, it is true.
+ */
+typedef struct TSNodeObject {
+  char* name;
+  TSNode node;
+  uint64_t size;
+  TSNodeObjectType type;
+  union {
+    int64_t int64;
+    uint64_t uint64;
+    long double double64;
+    void* pointer;
+  } value;
+} TSNodeObject;
+
+/**
+ * Execute the given TSNode with the runtime information.
+ * 
+ * It only support variable, literal, unary/binary operations.
+ * It does not support the other expressions, such as function call.
+ * 
+ * Collect all available variable to array and pass it to vars.
+ * Add field member variables into single TSNodeObject.
+ * If the field member is `a->b.c`, create TSNodeObject with name "a->b.c" and set value with the actual value.
+ */
+TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Get the TSNodeObject of the given variable.
+ * 
+ * If the variable is not found, throw assertion error.
+ */
+TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Create new TSNodeObject of the given literal.
+ */
+TSNodeObject ts_interpreter_literal(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Create new TSNodeObject of the given unary operation.
+ * 
+ * It internally calls `ts_interpreter_simulate` with the operand.
+ */
+TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Create new TSNodeObject of the given binary operation.
+ * 
+ * It internally calls `ts_interpreter_simulate` with the left and right operands.
+ */
+TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
 #ifdef __cplusplus
 }
 #endif

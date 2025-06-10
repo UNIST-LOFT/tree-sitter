@@ -13,6 +13,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+#define TREE_SITTER_MAJOR_VERSION 21
+
 /****************************/
 /* Section - ABI Versioning */
 /****************************/

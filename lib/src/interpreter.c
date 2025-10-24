@@ -11,7 +11,8 @@ TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObje
         }
     }
 
-    assert(0 && "Variable not found");
+    fprintf(stderr, "Variable not found: %s\n", node_name);
+    assert(0);
 }
 
 int in_str(char* str, char c) {

@@ -804,4 +804,31 @@ void ts_node_print_tree(TSNode self, int32_t cur_indent) {
   }
 }
 
+char *trim(char *str);
+
+void ts_node_find_variables(TSNode node, const char* code, uint32_t* count, char** variables) {
+  for (uint32_t i = 0; i < ts_node_named_child_count(node); i++) {
+    TSNode child = ts_node_named_child(node, i);
+    if (strcmp(ts_node_type(child), "identifier") == 0 || strcmp(ts_node_type(child), "field_expression") == 0) {
+      char* var_name = ts_node_find_value(child);
+      if (var_name) {
+        variables[*count] = var_name;
+        (*count)++;
+      }
+      else {
+        // Value is not inserted yet
+        uint32_t start = ts_node_start_byte(node);
+        uint32_t end = ts_node_end_byte(node);
+        char* value = trim(ts_substr(code,start,end));
+        variables[*count] = value;
+        (*count)++;
+      }
+    }
+    else {
+      // We do not need to traverse if this node is variable
+      ts_node_find_variables(child, code, count, variables);
+    }
+  }
+}
+
 /* Addition Finished */

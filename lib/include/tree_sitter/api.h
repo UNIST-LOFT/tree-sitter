@@ -682,6 +682,11 @@ char* ts_node_find_value_2(TSNode self);
 */
 void ts_node_print_tree(TSNode self, int32_t cur_indent);
 
+/**
+ * Find all variable names in the given node.
+ */
+void ts_node_find_variables(TSNode node, const char* code, uint32_t* count, char** variables);
+
 /* Addition finished */
 
 /************************/

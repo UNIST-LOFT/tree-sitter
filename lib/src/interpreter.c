@@ -664,6 +664,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                     default:
                         assert(0 && "Unknown type");
                 }
+                break;
 
             default:
                 assert(0 && "Unknown type in inequality");
@@ -745,40 +746,40 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                 }
                 break;
     
-                case TSNodeObjectTypeUInt:
-                    switch (obj2.type) {
-                        case TSNodeObjectTypeInt:
-                            result.value.int64=obj1.value.uint64>obj2.value.int64;
-                            break;
-                        case TSNodeObjectTypeUInt:
-                            result.value.int64=obj1.value.uint64>obj2.value.uint64;
-                            break;
-                        case TSNodeObjectTypeDouble:
-                            result.value.int64=obj1.value.uint64>obj2.value.double64;
-                            break;
-                        default:
-                            assert(0 && "Unknown type");
-                    }
-                    break;
+            case TSNodeObjectTypeUInt:
+                switch (obj2.type) {
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=obj1.value.uint64>obj2.value.int64;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=obj1.value.uint64>obj2.value.uint64;
+                        break;
+                    case TSNodeObjectTypeDouble:
+                        result.value.int64=obj1.value.uint64>obj2.value.double64;
+                        break;
+                    default:
+                        assert(0 && "Unknown type");
+                }
+                break;
 
-                case TSNodeObjectTypeDouble:
-                    switch (obj2.type) {
-                        case TSNodeObjectTypeInt:
-                            result.value.int64=obj1.value.double64>obj2.value.int64;
-                            break;
-                        case TSNodeObjectTypeUInt:
-                            result.value.int64=obj1.value.double64>obj2.value.uint64;
-                            break;
-                        case TSNodeObjectTypeDouble:
-                            result.value.int64=obj1.value.double64>obj2.value.double64;
-                            break;
-                        default:
-                            assert(0 && "Unknown type");
-                    }
-                    break;
+            case TSNodeObjectTypeDouble:
+                switch (obj2.type) {
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=obj1.value.double64>obj2.value.int64;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=obj1.value.double64>obj2.value.uint64;
+                        break;
+                    case TSNodeObjectTypeDouble:
+                        result.value.int64=obj1.value.double64>obj2.value.double64;
+                        break;
+                    default:
+                        assert(0 && "Unknown type");
+                }
+                break;
 
-                default:
-                    assert(0 && "Unknown type in greater than");
+            default:
+                assert(0 && "Unknown type in greater than");
         }
     }
     else if (strcmp(op,"<=")==0) {

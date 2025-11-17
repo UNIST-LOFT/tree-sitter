@@ -99,7 +99,7 @@ typedef struct TSInputEdit {
 typedef struct TSNode {
   uint32_t context[4];
   const void *id;
-  const TSTree *tree;
+  TSTree *tree;
 } TSNode;
 
 typedef struct TSTreeCursor {

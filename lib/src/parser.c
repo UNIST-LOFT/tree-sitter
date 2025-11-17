@@ -2111,20 +2111,14 @@ TSTree *ts_parser_parse_string_encoding(
   });
 
   // Added by FreddyYJ.
+  root->node_value_count=0;
+  root->node_value_2_count=0;
   ts_add_value(ts_tree_root_node(root),string);
   return root;
 }
 
 /** Added by FreddyYJ. */
 #include <ctype.h>
-
-uint32_t node_value_count=0;
-TSNode node_value_keys[10000];
-char* node_value_values[10000];
-
-uint32_t node_value_2_count=0;
-TSNode node_value_2_keys[10000];
-char* node_value_2_values[10000];
 
 char *trim_left(char *str) {
     while (*str) {
@@ -2158,8 +2152,9 @@ char *trim(char *str) {
 char* ts_substr(const char* str,uint32_t start, uint32_t end);
 
 uint8_t value_exist(TSNode node) {
-  for (uint32_t i=0;i<node_value_count;i++) {
-    if (ts_node_eq(node,node_value_keys[i])) {
+  TSTree* tree = node.tree;
+  for (uint32_t i=0;i<tree->node_value_count;i++) {
+    if (ts_node_eq(node,tree->node_value_keys[i])) {
       return 1;
     }
   }
@@ -2167,8 +2162,9 @@ uint8_t value_exist(TSNode node) {
 }
 
 uint8_t value_2_exist(TSNode node) {
-  for (uint32_t i=0;i<node_value_2_count;i++) {
-    if (ts_node_eq(node,node_value_2_keys[i])) {
+  TSTree* tree = node.tree;
+  for (uint32_t i=0;i<tree->node_value_2_count;i++) {
+    if (ts_node_eq(node,tree->node_value_2_keys[i])) {
       return 1;
     }
   }
@@ -2176,24 +2172,27 @@ uint8_t value_2_exist(TSNode node) {
 }
 
 char* ts_node_find_value(TSNode node) {
-  for (uint32_t i=0;i<node_value_count;i++) {
-    if (ts_node_eq(node,node_value_keys[i])) {
-      return node_value_values[i];
+  TSTree* tree = node.tree;
+  for (uint32_t i=0;i<tree->node_value_count;i++) {
+    if (ts_node_eq(node,tree->node_value_keys[i])) {
+      return tree->node_value_values[i];
     }
   }
   return NULL;
 }
 
 char* ts_node_find_value_2(TSNode node) {
-  for (uint32_t i=0;i<node_value_2_count;i++) {
-    if (ts_node_eq(node,node_value_2_keys[i])) {
-      return node_value_2_values[i];
+  TSTree* tree = node.tree;
+  for (uint32_t i=0;i<tree->node_value_2_count;i++) {
+    if (ts_node_eq(node,tree->node_value_2_keys[i])) {
+      return tree->node_value_2_values[i];
     }
   }
   return NULL;
 }
 
 void ts_add_value(TSNode node,const char* code) {
+  TSTree* tree = node.tree;
   if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
       strcmp(ts_node_type(node),"string_literal")==0 || strcmp(ts_node_type(node),"field_expression")==0 ||
       strcmp(ts_node_type(node),"char_literal")==0 || strcmp(ts_node_type(node),"integer")==0 ||
@@ -2203,14 +2202,14 @@ void ts_add_value(TSNode node,const char* code) {
     char* value = trim(ts_substr(code,start,end));
 
     if (!value_exist(node)){
-      node_value_keys[node_value_count]=node;
-      node_value_values[node_value_count]=value;
-      node_value_count++;
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=value;
+      tree->node_value_count++;
     }
   }
   else if (strcmp(ts_node_type(node),"binary_expression")==0 || 
            strcmp(ts_node_type(node),"boolean_operator")==0) {
-    assert(ts_node_named_child_count(node)==2);
+    assert(ts_node_named_child_count(node)>=2);
     // Remove left and right operand to get operator
     TSNode left = ts_node_named_child(node, 0);
     uint32_t left_end = ts_node_end_byte(left);
@@ -2219,9 +2218,9 @@ void ts_add_value(TSNode node,const char* code) {
     char* op = trim(ts_substr(code,left_end,right_start));
 
     if (!value_exist(node)){
-      node_value_keys[node_value_count]=node;
-      node_value_values[node_value_count]=op;
-      node_value_count++;
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=op;
+      tree->node_value_count++;
     }
 
     ts_add_value(left,code);
@@ -2238,9 +2237,9 @@ void ts_add_value(TSNode node,const char* code) {
       char* op = trim(ts_substr(code,left_end,right_start));
 
       if (!value_exist(node)){
-        node_value_keys[node_value_count]=node;
-        node_value_values[node_value_count]=op;
-        node_value_count++;
+        tree->node_value_keys[tree->node_value_count]=node;
+        tree->node_value_values[tree->node_value_count]=op;
+        tree->node_value_count++;
       }
 
       ts_add_value(left,code);
@@ -2261,13 +2260,13 @@ void ts_add_value(TSNode node,const char* code) {
       char* op_2 = trim(ts_substr(code,second_end,third_start));
 
       if (!value_exist(node)){
-        node_value_keys[node_value_count]=node;
-        node_value_values[node_value_count]=op_1;
-        node_value_count++;
+        tree->node_value_keys[tree->node_value_count]=node;
+        tree->node_value_values[tree->node_value_count]=op_1;
+        tree->node_value_count++;
 
-        node_value_2_keys[node_value_2_count]=node;
-        node_value_2_values[node_value_2_count]=op_2;
-        node_value_2_count++;
+        tree->node_value_2_keys[tree->node_value_2_count]=node;
+        tree->node_value_2_values[tree->node_value_2_count]=op_2;
+        tree->node_value_2_count++;
       }
 
       ts_add_value(first,code);
@@ -2289,32 +2288,32 @@ void ts_add_value(TSNode node,const char* code) {
         char* op=trim(ts_substr(code,ts_node_start_byte(child),end));
         char new_op[10];
         sprintf(new_op,"p%s",op);
-        node_value_keys[node_value_count]=node;
-        node_value_values[node_value_count]=new_op;
-        node_value_count++;
+        tree->node_value_keys[tree->node_value_count]=node;
+        tree->node_value_values[tree->node_value_count]=new_op;
+        tree->node_value_count++;
       }
     }
     else if (strcmp(ts_node_type(node),"true")==0) {
       if (!value_exist(node)) {
-        node_value_keys[node_value_count]=node;
-        node_value_values[node_value_count]="true";
-        node_value_count++;
+        tree->node_value_keys[tree->node_value_count]=node;
+        tree->node_value_values[tree->node_value_count]="true";
+        tree->node_value_count++;
       }
     }
     else if (strcmp(ts_node_type(node),"false")==0) {
       if (!value_exist(node)) {
-        node_value_keys[node_value_count]=node;
-        node_value_values[node_value_count]="false";
-        node_value_count++;
+        tree->node_value_keys[tree->node_value_count]=node;
+        tree->node_value_values[tree->node_value_count]="false";
+        tree->node_value_count++;
       }
     }
     else {
       // Prefix
       if (!value_exist(node)){
         char* op=trim(ts_substr(code,start,ts_node_end_byte(child)));
-        node_value_keys[node_value_count]=node;
-        node_value_values[node_value_count]=op;
-        node_value_count++;
+        tree->node_value_keys[tree->node_value_count]=node;
+        tree->node_value_values[tree->node_value_count]=op;
+        tree->node_value_count++;
       }
     }
 
@@ -2327,9 +2326,9 @@ void ts_add_value(TSNode node,const char* code) {
     uint32_t end = ts_node_end_byte(node);
     char* value = trim(ts_substr(code,start,end));
     if (!value_exist(node)){
-      node_value_keys[node_value_count]=node;
-      node_value_values[node_value_count]=value;
-      node_value_count++;
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=value;
+      tree->node_value_count++;
     }
 
     for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
@@ -2343,9 +2342,9 @@ void ts_add_value(TSNode node,const char* code) {
     uint32_t end = ts_node_end_byte(node);
     char* value = trim(ts_substr(code,start,end));
     if (!value_exist(node)){
-      node_value_keys[node_value_count]=node;
-      node_value_values[node_value_count]=value;
-      node_value_count++;
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=value;
+      tree->node_value_count++;
     }
   }
   else{

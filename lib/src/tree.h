@@ -19,6 +19,15 @@ struct TSTree {
   const TSLanguage *language;
   TSRange *included_ranges;
   unsigned included_range_count;
+
+  // Added by FreddyYJ
+  uint32_t node_value_count;
+  TSNode node_value_keys[10000];
+  char* node_value_values[10000];
+
+  uint32_t node_value_2_count;
+  TSNode node_value_2_keys[10000];
+  char* node_value_2_values[10000];
 };
 
 TSTree *ts_tree_new(Subtree root, const TSLanguage *language, const TSRange *, unsigned);

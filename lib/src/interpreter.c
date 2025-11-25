@@ -1007,6 +1007,15 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.value.uint64=0;
         return obj;
     }
+    else if (strcmp(ts_node_type(node), "null")==0) {
+        TSNodeObject obj;
+        obj.name="null";
+        obj.node=node;
+        obj.size=sizeof(void*);
+        obj.type=TSNodeObjectTypePointer;
+        obj.value.pointer=NULL;
+        return obj;
+    }
     else if (strcmp(ts_node_type(node),"parenthesized_expression")==0 ||
             strcmp(ts_node_type(node),"expression_statement")==0 ||
             strcmp(ts_node_type(node),"ERROR")==0) {

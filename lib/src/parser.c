@@ -2285,7 +2285,7 @@ void ts_add_value(TSNode node,const char* code) {
     if (start==ts_node_start_byte(child)) {
       // Postfix
       if (!value_exist(node)){
-        char* op=trim(ts_substr(code,ts_node_start_byte(child),end));
+        char* op=trim(ts_substr(code,ts_node_end_byte(child),end));
         char new_op[10];
         sprintf(new_op,"p%s",op);
         tree->node_value_keys[tree->node_value_count]=node;
@@ -2310,7 +2310,7 @@ void ts_add_value(TSNode node,const char* code) {
     else {
       // Prefix
       if (!value_exist(node)){
-        char* op=trim(ts_substr(code,start,ts_node_end_byte(child)));
+        char* op=trim(ts_substr(code,start,ts_node_start_byte(child)));
         tree->node_value_keys[tree->node_value_count]=node;
         tree->node_value_values[tree->node_value_count]=op;
         tree->node_value_count++;

@@ -36,7 +36,7 @@ int is_postfix(char* str,char* postfix) {
     return 1;
 }
 
-TSNodeObject ts_interpreter_literal(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+TSNodeObject ts_interpreter_literal(TSNode node) {
     TSNodeObject obj;
     obj.name=ts_node_find_value(node);
     obj.node=node;
@@ -542,10 +542,13 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64==obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64==obj2.value.uint64;
+                        result.value.int64=obj1.value.int64==(int64_t)obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.int64==obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 == (int64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -555,13 +558,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             case TSNodeObjectTypeUInt:
                 switch (obj2.type) {
                     case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.uint64==obj2.value.int64;
+                        result.value.int64=(int64_t)obj1.value.uint64==obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64==obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.uint64==obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 == (uint64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -592,6 +598,9 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                     case TSNodeObjectTypeInt:
                         result.value.int64=obj1.value.pointer==NULL;
                         break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=obj1.value.pointer==NULL;
+                        break;
                     default:
                         assert(0 && "Unknown type");
                 }
@@ -611,10 +620,13 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64!=obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64!=obj2.value.uint64;
+                        result.value.int64=obj1.value.int64!=(int64_t)obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.int64!=obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 != (int64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -624,13 +636,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             case TSNodeObjectTypeUInt:
                 switch (obj2.type) {
                     case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.uint64!=obj2.value.int64;
+                        result.value.int64=(int64_t)obj1.value.uint64!=obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64!=obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.uint64!=obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 != (uint64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -661,6 +676,9 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                     case TSNodeObjectTypeInt:
                         result.value.int64=obj1.value.pointer!=NULL;
                         break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=obj1.value.pointer!=NULL;
+                        break;
                     default:
                         assert(0 && "Unknown type");
                 }
@@ -680,10 +698,13 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64<obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64<obj2.value.uint64;
+                        result.value.int64=obj1.value.int64<(int64_t)obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.int64<obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 < (int64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -693,13 +714,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             case TSNodeObjectTypeUInt:
                 switch (obj2.type) {
                     case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.uint64<obj2.value.int64;
+                        result.value.int64=(int64_t)obj1.value.uint64<obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64<obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.uint64<obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 < (uint64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -722,6 +746,22 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                 }
                 break;
 
+            case TSNodeObjectTypePointer:
+                switch (obj2.type) {
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.pointer<obj2.value.pointer;
+                        break;
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=(int64_t)obj1.value.pointer<(int64_t)NULL;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=(int64_t)obj1.value.pointer<(int64_t)NULL;
+                        break;
+                    default:
+                        assert(0 && "Unknown type");
+                }
+                break;
+
             default:
                 assert(0 && "Unknown type in less than");
         }
@@ -736,10 +776,13 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64>obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64>obj2.value.uint64;
+                        result.value.int64=obj1.value.int64>(int64_t)obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.int64>obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 > (int64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -749,13 +792,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             case TSNodeObjectTypeUInt:
                 switch (obj2.type) {
                     case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.uint64>obj2.value.int64;
+                        result.value.int64=(int64_t)obj1.value.uint64>obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64>obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.uint64>obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 > (uint64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -778,6 +824,22 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                 }
                 break;
 
+            case TSNodeObjectTypePointer:
+                switch (obj2.type) {
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.pointer>obj2.value.pointer;
+                        break;
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=(int64_t)obj1.value.pointer>(int64_t)NULL;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=(int64_t)obj1.value.pointer>(int64_t)NULL;
+                        break;
+                    default:
+                        assert(0 && "Unknown type");
+                }
+                break;
+
             default:
                 assert(0 && "Unknown type in greater than");
         }
@@ -792,10 +854,13 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64<=obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64<=obj2.value.uint64;
+                        result.value.int64=obj1.value.int64<=(int64_t)obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.int64<=obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 <= (int64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -805,13 +870,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             case TSNodeObjectTypeUInt:
                 switch (obj2.type) {
                     case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.uint64<=obj2.value.int64;
+                        result.value.int64=(int64_t)obj1.value.uint64<=obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64<=obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.uint64<=obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 <= (uint64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -834,6 +902,22 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                 }
                 break;
 
+            case TSNodeObjectTypePointer:
+                switch (obj2.type) {
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.pointer<=obj2.value.pointer;
+                        break;
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=(int64_t)obj1.value.pointer<=(int64_t)NULL;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=(int64_t)obj1.value.pointer<=(int64_t)NULL;
+                        break;
+                    default:
+                        assert(0 && "Unknown type");
+                }
+                break;
+
             default:
                 assert(0 && "Unknown type in less than or equal");
         }
@@ -848,10 +932,13 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64>=obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64>=obj2.value.uint64;
+                        result.value.int64=obj1.value.int64>=(int64_t)obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.int64>=obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 >= (int64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -861,13 +948,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             case TSNodeObjectTypeUInt:
                 switch (obj2.type) {
                     case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.uint64>=obj2.value.int64;
+                        result.value.int64=(int64_t)obj1.value.uint64>=obj2.value.int64;
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64>=obj2.value.uint64;
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.uint64>=obj2.value.double64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 >= (uint64_t)obj2.value.pointer;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -884,6 +974,22 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         break;
                     case TSNodeObjectTypeDouble:
                         result.value.int64=obj1.value.double64>=obj2.value.double64;
+                        break;
+                    default:
+                        assert(0 && "Unknown type");
+                }
+                break;
+
+            case TSNodeObjectTypePointer:
+                switch (obj2.type) {
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.pointer>=obj2.value.pointer;
+                        break;
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=(int64_t)obj1.value.pointer>=(int64_t)NULL;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=(int64_t)obj1.value.pointer>=(int64_t)NULL;
                         break;
                     default:
                         assert(0 && "Unknown type");
@@ -973,7 +1079,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_variable(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"number_literal")==0 || strcmp(ts_node_type(node),"char_literal")==0) {
-        return ts_interpreter_literal(node,var_count,vars);
+        return ts_interpreter_literal(node);
     }
     else if (strcmp(ts_node_type(node),"unary_expression")==0) {
         return ts_interpreter_unary(node,var_count,vars);

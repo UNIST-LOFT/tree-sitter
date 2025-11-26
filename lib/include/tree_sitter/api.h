@@ -1365,7 +1365,7 @@ TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObje
 /**
  * Create new TSNodeObject of the given literal.
  */
-TSNodeObject ts_interpreter_literal(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_literal(TSNode node);
 
 /**
  * Create new TSNodeObject of the given unary operation.

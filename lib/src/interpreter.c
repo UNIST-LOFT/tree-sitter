@@ -1074,6 +1074,3063 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
     return result;
 }
 
+TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+    assert(strcmp(ts_node_type(node),"call_expression")==0 && "Node must be a call_expression");
+    TSNodeObject obj;
+    const char* func_name = ts_node_find_value(ts_node_named_child(node,0));
+    obj.name = malloc(strlen(func_name)+1);
+    strcpy(obj.name, func_name); // Copy function name
+    
+    TSNodeObject found;
+    int exists = 0;
+    for (size_t i = 0; i < var_count; i++) {
+        if (strcmp(vars[i].name, obj.name) == 0) {
+            found = vars[i];
+            exists = 1;
+            break;
+        }
+    }
+    assert(exists && "Function not found in variables");
+
+    TSNodeObject args[10]; // Max 10 arguments
+    TSNode arg_list = ts_node_named_child(node,1);
+    uint32_t arg_count = ts_node_named_child_count(arg_list);
+    for (size_t i = 0; i < arg_count; i++) {
+        TSNode arg_node = ts_node_named_child(arg_list, i);
+        args[i] = ts_interpreter_simulate(arg_node, var_count, vars);
+    }
+
+    switch (found.type) {
+        case TSNodeObjectTypeFunctionVoid:
+            obj.type = TSNodeObjectTypeInt; // TODO: handle void return, now return 0
+            obj.size = sizeof(int32_t);
+            obj.value.int64 = 0;
+            break;
+        case TSNodeObjectTypeFunctionInt:
+            obj.type = TSNodeObjectTypeInt;
+            obj.size = sizeof(int32_t);
+            break;
+        case TSNodeObjectTypeFunctionUInt:
+            obj.type = TSNodeObjectTypeUInt;
+            obj.size = sizeof(uint32_t);
+            break;
+        case TSNodeObjectTypeFunctionPointer:
+            obj.type = TSNodeObjectTypePointer;
+            obj.size = sizeof(void*);
+            break;
+        default:
+            fprintf(stderr, "Unknown function type\n");
+            abort();
+    }
+
+    // Call the function
+    switch (found.type) {
+        case TSNodeObjectTypeFunctionVoid: {
+            switch (arg_count) {
+                case 0:
+                    found.value.void_func();
+                    break;
+                case 1:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            found.value.void_func(args[0].value.int64);
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            found.value.void_func(args[0].value.uint64);
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            found.value.void_func(args[0].value.double64);
+                            break;
+                        case TSNodeObjectTypePointer:
+                            found.value.void_func(args[0].value.pointer);
+                            break;
+                        case TSNodeObjectTypeString:
+                            found.value.void_func(args[0].name);
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for void function");
+                            abort();
+                    }
+                    break;
+                case 2:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    found.value.void_func(args[0].value.int64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    found.value.void_func(args[0].value.int64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    found.value.void_func(args[0].value.int64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    found.value.void_func(args[0].value.int64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    found.value.void_func(args[0].value.int64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    found.value.void_func(args[0].value.uint64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    found.value.void_func(args[0].value.uint64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    found.value.void_func(args[0].value.uint64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    found.value.void_func(args[0].value.uint64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    found.value.void_func(args[0].value.uint64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    found.value.void_func(args[0].value.double64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    found.value.void_func(args[0].value.double64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    found.value.void_func(args[0].value.double64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    found.value.void_func(args[0].value.double64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    found.value.void_func(args[0].value.double64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    found.value.void_func(args[0].value.pointer, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    found.value.void_func(args[0].value.pointer, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    found.value.void_func(args[0].value.pointer, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    found.value.void_func(args[0].value.pointer, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    found.value.void_func(args[0].value.pointer, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    found.value.void_func(args[0].name, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    found.value.void_func(args[0].name, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    found.value.void_func(args[0].name, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    found.value.void_func(args[0].name, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    found.value.void_func(args[0].name, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for void function");
+                            abort();
+                    }
+                    break;
+                case 3:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.int64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.int64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.int64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.int64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.int64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.int64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.int64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.int64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.int64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.int64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.int64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.int64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.int64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.int64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.int64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.int64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.int64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.int64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.int64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.int64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.int64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.int64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.int64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.int64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.int64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.uint64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.uint64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.uint64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.uint64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.uint64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.double64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.double64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.double64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.double64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.double64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.double64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.double64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.double64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.double64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.double64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.double64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.double64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.double64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.double64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.double64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.double64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.double64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.double64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.double64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.double64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.double64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.double64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.double64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.double64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.double64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].value.pointer, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].value.pointer, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].value.pointer, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].value.pointer, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].value.pointer, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].name, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].name, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].name, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].name, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].name, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].name, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].name, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].name, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].name, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].name, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].name, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].name, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].name, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].name, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].name, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].name, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].name, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].name, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].name, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].name, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            found.value.void_func(args[0].name, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            found.value.void_func(args[0].name, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            found.value.void_func(args[0].name, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            found.value.void_func(args[0].name, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            found.value.void_func(args[0].name, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for void function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for void function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for void function");
+                            abort();
+                    }
+                    break;
+                default:
+                    assert(0 && "Unsupported number of arguments for void function");
+            }
+            break;
+        }
+        case TSNodeObjectTypeFunctionInt: {
+            int64_t return_value = 0;
+            switch (arg_count) {
+                case 0:
+                    return_value = found.value.int_func();
+                    break;
+                case 1:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            return_value = found.value.int_func(args[0].value.int64);
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            return_value = found.value.int_func(args[0].value.uint64);
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            return_value = found.value.int_func(args[0].value.double64);
+                            break;
+                        case TSNodeObjectTypePointer:
+                            return_value = found.value.int_func(args[0].value.pointer);
+                            break;
+                        case TSNodeObjectTypeString:
+                            return_value = found.value.int_func(args[0].name);
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for int function");
+                            abort();
+                    }
+                    break;
+                case 2:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.int_func(args[0].value.int64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.int_func(args[0].value.int64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.int_func(args[0].value.int64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.int_func(args[0].value.uint64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.int_func(args[0].value.double64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.int_func(args[0].value.double64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.int_func(args[0].value.double64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.int_func(args[0].value.pointer, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.int_func(args[0].name, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.int_func(args[0].name, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.int_func(args[0].name, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.int_func(args[0].name, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.int_func(args[0].name, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for int function");
+                            abort();
+                    }
+                    break;
+                case 3:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.int64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.uint64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.double64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].value.pointer, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].name, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.int_func(args[0].name, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.int_func(args[0].name, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.int_func(args[0].name, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.int_func(args[0].name, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.int_func(args[0].name, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for int function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for int function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for int function");
+                            abort();
+                    }
+                    break;
+                default:
+                    assert(0 && "Unsupported number of arguments for int function");
+            }
+            obj.value.int64 = return_value;
+            break;
+        }
+        case TSNodeObjectTypeFunctionUInt: {
+            uint64_t return_value = 0;
+            switch (arg_count) {
+                case 0:
+                    return_value = found.value.uint_func();
+                    break;
+                case 1:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            return_value = found.value.uint_func(args[0].value.int64);
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            return_value = found.value.uint_func(args[0].value.uint64);
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            return_value = found.value.uint_func(args[0].value.double64);
+                            break;
+                        case TSNodeObjectTypePointer:
+                            return_value = found.value.uint_func(args[0].value.pointer);
+                            break;
+                        case TSNodeObjectTypeString:
+                            return_value = found.value.uint_func(args[0].name);
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for uint function");
+                            abort();
+                    }
+                    break;
+                case 2:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.uint_func(args[0].value.int64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.uint_func(args[0].value.uint64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.uint_func(args[0].value.double64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.uint_func(args[0].value.pointer, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.uint_func(args[0].name, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.uint_func(args[0].name, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.uint_func(args[0].name, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.uint_func(args[0].name, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.uint_func(args[0].name, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for uint function");
+                            abort();
+                    }
+                    break;
+                case 3:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.int64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.uint_func(args[0].name, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.uint_func(args[0].name, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.uint_func(args[0].name, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.uint_func(args[0].name, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.uint_func(args[0].name, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for uint function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for uint function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for uint function");
+                            abort();
+                    }
+                    break;
+                default:
+                    assert(0 && "Unsupported number of arguments for uint function");
+            }
+            obj.value.uint64 = return_value;
+            break;
+        }
+        case TSNodeObjectTypeFunctionPointer: {
+            void* return_value = NULL;
+            switch (arg_count) {
+                case 0:
+                    return_value = found.value.pointer_func();
+                    break;
+                case 1:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            return_value = found.value.pointer_func(args[0].value.int64);
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            return_value = found.value.pointer_func(args[0].value.uint64);
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            return_value = found.value.pointer_func(args[0].value.double64);
+                            break;
+                        case TSNodeObjectTypePointer:
+                            return_value = found.value.pointer_func(args[0].value.pointer);
+                            break;
+                        case TSNodeObjectTypeString:
+                            return_value = found.value.pointer_func(args[0].name);
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for pointer function");
+                            abort();
+                    }
+                    break;
+                case 2:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.pointer_func(args[0].value.int64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.pointer_func(args[0].value.uint64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.pointer_func(args[0].value.double64, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.pointer_func(args[0].value.pointer, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeString:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    return_value = found.value.pointer_func(args[0].name, args[1].value.int64);
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    return_value = found.value.pointer_func(args[0].name, args[1].value.uint64);
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    return_value = found.value.pointer_func(args[0].name, args[1].value.double64);
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    return_value = found.value.pointer_func(args[0].name, args[1].value.pointer);
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    return_value = found.value.pointer_func(args[0].name, args[1].name);
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for pointer function");
+                            abort();
+                    }
+                    break;
+                case 3:
+                    switch (args[0].type) {
+                        case TSNodeObjectTypeInt:
+                        case TSNodeObjectTypeChar:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.int64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeUInt:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.uint64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypeDouble:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.double64, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        case TSNodeObjectTypePointer:
+                            switch (args[1].type) {
+                                case TSNodeObjectTypeInt:
+                                case TSNodeObjectTypeChar:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeUInt:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeDouble:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypePointer:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                case TSNodeObjectTypeString:
+                                    switch (args[2].type) {
+                                        case TSNodeObjectTypeInt:
+                                        case TSNodeObjectTypeChar:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].name, args[2].value.int64);
+                                            break;
+                                        case TSNodeObjectTypeUInt:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].name, args[2].value.uint64);
+                                            break;
+                                        case TSNodeObjectTypeDouble:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].name, args[2].value.double64);
+                                            break;
+                                        case TSNodeObjectTypePointer:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].name, args[2].value.pointer);
+                                            break;
+                                        case TSNodeObjectTypeString:
+                                            return_value = found.value.pointer_func(args[0].value.pointer, args[1].name, args[2].name);
+                                            break;
+                                        default:
+                                            fprintf(stderr, "Unsupported argument type for pointer function");
+                                            abort();
+                                    }
+                                    break;
+                                default:
+                                    fprintf(stderr, "Unsupported argument type for pointer function");
+                                    abort();
+                            }
+                            break;
+                        default:
+                            fprintf(stderr, "Unsupported argument type for pointer function");
+                            abort();
+                    }
+                    break;
+                default:
+                    assert(0 && "Unsupported number of arguments for pointer function");
+            }
+            obj.value.pointer = return_value;
+            break;
+        }
+        default:
+            assert(0 && "Unknown function type during call");
+    }
+
+    return obj;
+}
+
 TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     if (strcmp(ts_node_type(node),"identifier")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
         return ts_interpreter_variable(node,var_count,vars);
@@ -1121,6 +4178,9 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.type=TSNodeObjectTypePointer;
         obj.value.pointer=NULL;
         return obj;
+    }
+    else if (strcmp(ts_node_type(node),"call_expression")==0) {
+        return ts_interpreter_function(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"parenthesized_expression")==0 ||
             strcmp(ts_node_type(node),"expression_statement")==0 ||

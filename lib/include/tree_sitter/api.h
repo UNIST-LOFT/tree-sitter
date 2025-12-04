@@ -1305,6 +1305,12 @@ typedef enum TSNodeObjectType {
   TSNodeObjectTypeString,
   // Char Literal
   TSNodeObjectTypeChar,
+
+  // Functions
+  TSNodeObjectTypeFunctionVoid,
+  TSNodeObjectTypeFunctionInt,
+  TSNodeObjectTypeFunctionUInt,
+  TSNodeObjectTypeFunctionPointer
 } TSNodeObjectType;
 
 /**
@@ -1329,6 +1335,10 @@ typedef enum TSNodeObjectType {
  * 
  * If this object represents boolean value/variable, actual value is stored in `value.uint32`.
  * If the value is 0, it is false. Otherwise, it is true.
+ * 
+ * If this object represents function, the `name` is the function name, `type` is the return type, `size` is the number of arguments,
+ * and `value` is the function pointer.
+ * It supports void, int, uint, and pointer return types.
  */
 typedef struct TSNodeObject {
   char* name;
@@ -1340,6 +1350,10 @@ typedef struct TSNodeObject {
     uint64_t uint64;
     long double double64;
     void* pointer;
+    void (*void_func)();
+    int64_t (*int_func)();
+    uint64_t (*uint_func)();
+    void* (*pointer_func)();
   } value;
 } TSNodeObject;
 
@@ -1380,6 +1394,14 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
  * It internally calls `ts_interpreter_simulate` with the left and right operands.
  */
 TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Create new TSNodeFunction of the given function call.
+ * 
+ * It internally calls `ts_interpreter_simulate` with the arguments.
+ * Thus, every arguments must be acceptable by this interpreter.
+ */
+TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars);
 
 #ifdef __cplusplus
 }

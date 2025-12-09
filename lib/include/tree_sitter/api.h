@@ -12,6 +12,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #define TREE_SITTER_MAJOR_VERSION 21
 
@@ -1402,6 +1403,20 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
  * Thus, every arguments must be acceptable by this interpreter.
  */
 TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/*************************************/
+/*  Section - Utilities (FreddyYJ)   */
+/*************************************/
+
+/**
+ * Print error message to stderr and abort the program.
+ * 
+ * Supports printf-style formatting.
+ */
+#define TS_PRINTF_ERROR(fmt, ...) do { \
+    fprintf(stderr, "ERROR: " fmt, ##__VA_ARGS__); \
+    abort(); \
+} while (0)
 
 #ifdef __cplusplus
 }

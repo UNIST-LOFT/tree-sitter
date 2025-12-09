@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <inttypes.h>
 
 TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     char* node_name=ts_node_find_value(node);
@@ -11,8 +12,7 @@ TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObje
         }
     }
 
-    fprintf(stderr, "Variable not found: %s\n", node_name);
-    assert(0);
+    TS_PRINTF_ERROR("Variable not found: %s\n", node_name);
 }
 
 int in_str(char* str, char c) {
@@ -75,7 +75,7 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
             obj.size=sizeof(unsigned long);
         }
         else {
-            assert(0 && "Unknown unsigned type");
+            TS_PRINTF_ERROR("Unknown unsigned type: %s\n", obj.name);
         }
 
         obj.type=TSNodeObjectTypeUInt;
@@ -120,7 +120,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
         result.value.pointer=&obj;
     }
     else if (strcmp(op,"*")==0) {
-        assert(0 && "Dereference operation not supported");
+        TS_PRINTF_ERROR("Dereference operation not supported");
     }
     else if (strcmp(op,"-")==0) {
         result.size=obj.size;
@@ -138,7 +138,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.double64=-obj.value.double64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
         }
     }
     else if (strcmp(op,"~")==0) {
@@ -153,7 +153,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=~obj.value.uint64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
         }
     }
     else if (strcmp(op,"!")==0) {
@@ -173,7 +173,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=++obj.value.uint64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
         }
     }
     else if (strcmp(op,"--")==0) {
@@ -188,7 +188,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=--obj.value.uint64;
                 break;
             default:
-                assert(0 && "Unknown type");
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
         }
     }
     else if (strcmp(op,"p++")==0) {
@@ -203,7 +203,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=obj.value.uint64++;
                 break;
             default:
-                assert(0 && "Unknown type");
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
         }
     }
     else if (strcmp(op,"p--")==0) {
@@ -218,11 +218,11 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.value.uint64=obj.value.uint64--;
                 break;
             default:
-                assert(0 && "Unknown type");
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
         }
     }
     else {
-        assert(0 && "Unknown unary operator");
+        TS_PRINTF_ERROR("Unknown unary operator: %s\n", op);
     }
 
     return result;
@@ -259,7 +259,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64+obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
             
@@ -278,7 +278,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64+obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -297,12 +297,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64+obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
             
             default:
-                assert(0 && "Unknown type in addition");
+                TS_PRINTF_ERROR("Unknown type in addition: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"-")==0) {
@@ -322,7 +322,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64-obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
             
@@ -341,7 +341,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64-obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -360,12 +360,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64-obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
             
             default:
-                assert(0 && "Unknown type in subtraction");
+                TS_PRINTF_ERROR("Unknown type in subtraction: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"*")==0) {
@@ -385,7 +385,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64*obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
             
@@ -404,7 +404,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64*obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -423,12 +423,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64*obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
             
             default:
-                assert(0 && "Unknown type in multiplication");
+                TS_PRINTF_ERROR("Unknown type in multiplication: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"/")==0) {
@@ -448,7 +448,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.int64/obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -467,7 +467,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.uint64/obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -486,12 +486,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.double64=obj1.value.double64/obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in division");
+                TS_PRINTF_ERROR("Unknown type in division: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"%%")==0) {
@@ -507,7 +507,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.uint64=obj1.value.int64%obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -522,12 +522,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.uint64=obj1.value.uint64%obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in modulo");
+                TS_PRINTF_ERROR("Unknown type in modulus: %d\n", obj1.type);
         }
     }
 
@@ -551,7 +551,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 == (int64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -570,7 +570,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 == (uint64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -586,7 +586,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64==obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -602,12 +602,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.pointer==NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in equality");
+                TS_PRINTF_ERROR("Unknown type in equality: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"!=")==0) {
@@ -629,7 +629,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 != (int64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -648,7 +648,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 != (uint64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -664,7 +664,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64!=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -680,12 +680,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.pointer!=NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in inequality");
+                TS_PRINTF_ERROR("Unknown type in inequality: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"<")==0) {
@@ -707,7 +707,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 < (int64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -726,7 +726,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 < (uint64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -742,7 +742,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64<obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -758,12 +758,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=(int64_t)obj1.value.pointer<(int64_t)NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in less than");
+                TS_PRINTF_ERROR("Unknown type in less than: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,">")==0) {
@@ -785,7 +785,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 > (int64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
     
@@ -804,7 +804,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 > (uint64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -820,7 +820,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64>obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -836,12 +836,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=(int64_t)obj1.value.pointer>(int64_t)NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in greater than");
+                TS_PRINTF_ERROR("Unknown type in greater than: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"<=")==0) {
@@ -863,7 +863,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 <= (int64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -882,7 +882,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 <= (uint64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -898,7 +898,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64<=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -914,12 +914,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=(int64_t)obj1.value.pointer<=(int64_t)NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in less than or equal");
+                TS_PRINTF_ERROR("Unknown type in less than or equal: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,">=")==0) {
@@ -941,7 +941,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 >= (int64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -960,7 +960,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 >= (uint64_t)obj2.value.pointer;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -976,7 +976,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.double64>=obj2.value.double64;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
@@ -992,12 +992,12 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=(int64_t)obj1.value.pointer>=(int64_t)NULL;
                         break;
                     default:
-                        assert(0 && "Unknown type");
+                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
                 }
                 break;
 
             default:
-                assert(0 && "Unknown type in greater than or equal");
+                TS_PRINTF_ERROR("Unknown type in greater than or equal: %d\n", obj1.type);
         }
     }
 
@@ -1015,7 +1015,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 && obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical and");
+                        TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj2.type);
                 }
                 break;
             case TSNodeObjectTypeUInt:
@@ -1027,11 +1027,11 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 && obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical and");
+                        TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj2.type);
                 }
                 break;
             default:
-                assert(0 && "Unknown type in logical and");
+                TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj1.type);
         }
     }
     else if (strcmp(op,"||")==0) {
@@ -1047,7 +1047,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.int64 || obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical or");
+                        TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj2.type);
                 }
                 break;
             case TSNodeObjectTypeUInt:
@@ -1059,23 +1059,25 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         result.value.int64=obj1.value.uint64 || obj2.value.uint64;
                         break;
                     default:
-                        assert(0 && "Unknown type in logical or");
+                        TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj2.type);
                 }
                 break;
             default:
-                assert(0 && "Unknown type in logical or");
+                TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj1.type);
         }
     }
 
     else {
-        assert(0 && "Unknown binary operator");
+        TS_PRINTF_ERROR("Unknown operator: %s\n", op);
     }
 
     return result;
 }
 
 TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars) {
-    assert(strcmp(ts_node_type(node),"call_expression")==0 && "Node must be a call_expression");
+    if (strcmp(ts_node_type(node), "call_expression") != 0) {
+        TS_PRINTF_ERROR("Node is not a call_expression: %s\n", ts_node_type(node));
+    }
     TSNodeObject obj;
     const char* func_name = ts_node_find_value(ts_node_named_child(node,0));
     obj.name = malloc(strlen(func_name)+1);
@@ -1090,7 +1092,8 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
             break;
         }
     }
-    assert(exists && "Function not found in variables");
+    if (!exists)
+        TS_PRINTF_ERROR("Function %s not found in variables\n", obj.name);
 
     TSNodeObject args[10]; // Max 10 arguments
     TSNode arg_list = ts_node_named_child(node,1);
@@ -1119,8 +1122,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
             obj.size = sizeof(void*);
             break;
         default:
-            fprintf(stderr, "Unknown function type\n");
-            abort();
+            TS_PRINTF_ERROR("Unknown function return type: %d\n", found.type);
     }
 
     // Call the function
@@ -1149,8 +1151,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                             found.value.void_func(args[0].name);
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for void function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[0].name);
                     }
                     break;
                 case 2:
@@ -1175,8 +1176,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     found.value.void_func(args[0].value.int64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -1198,8 +1198,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     found.value.void_func(args[0].value.uint64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -1221,8 +1220,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     found.value.void_func(args[0].value.double64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -1244,8 +1242,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     found.value.void_func(args[0].value.pointer, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -1267,13 +1264,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     found.value.void_func(args[0].name, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for void function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[0].name);
                     }
                     break;
                 case 3:
@@ -1301,8 +1296,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.int64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -1324,8 +1318,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.int64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -1347,8 +1340,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.int64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -1370,8 +1362,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.int64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -1393,13 +1384,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.int64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -1424,8 +1413,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.uint64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -1447,8 +1435,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -1470,8 +1457,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.uint64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -1493,8 +1479,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -1516,13 +1501,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.uint64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -1547,8 +1530,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.double64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -1570,8 +1552,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.double64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -1593,8 +1574,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.double64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -1616,8 +1596,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.double64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -1639,13 +1618,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.double64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -1670,8 +1647,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.pointer, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -1693,8 +1669,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -1716,8 +1691,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.pointer, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -1739,8 +1713,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -1762,13 +1735,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].value.pointer, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -1793,8 +1764,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].name, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -1816,8 +1786,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].name, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -1839,8 +1808,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].name, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -1862,8 +1830,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].name, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -1885,22 +1852,19 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             found.value.void_func(args[0].name, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for void function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for void function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for void function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for void function: %s\n", args[0].name);
                     }
                     break;
                 default:
-                    assert(0 && "Unsupported number of arguments for void function");
+                    TS_PRINTF_ERROR("Unsupported number of arguments for void function: %" PRIu32 "\n", arg_count);
             }
             break;
         }
@@ -1929,8 +1893,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                             return_value = found.value.int_func(args[0].name);
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for int function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[0].name);
                     }
                     break;
                 case 2:
@@ -1955,8 +1918,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.int_func(args[0].value.int64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -1978,8 +1940,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.int_func(args[0].value.uint64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -2001,8 +1962,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.int_func(args[0].value.double64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -2024,8 +1984,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.int_func(args[0].value.pointer, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -2047,13 +2006,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.int_func(args[0].name, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for int function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[0].name);
                     }
                     break;
                 case 3:
@@ -2081,8 +2038,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.int64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -2104,8 +2060,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.int64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -2127,8 +2082,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.int64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -2150,8 +2104,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.int64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -2173,13 +2126,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.int64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -2204,8 +2155,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.uint64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -2227,8 +2177,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -2250,8 +2199,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.uint64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -2273,8 +2221,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -2296,13 +2243,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.uint64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -2327,8 +2272,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.double64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -2350,8 +2294,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.double64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -2373,8 +2316,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.double64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -2396,8 +2338,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.double64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -2419,13 +2360,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.double64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -2450,8 +2389,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.pointer, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -2473,8 +2411,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -2496,8 +2433,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.pointer, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -2519,8 +2455,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -2542,13 +2477,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].value.pointer, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -2573,8 +2506,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].name, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -2596,8 +2528,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].name, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -2619,8 +2550,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].name, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -2642,8 +2572,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].name, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -2665,22 +2594,19 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.int_func(args[0].name, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for int function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for int function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for int function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for int function: %s\n", args[0].name);
                     }
                     break;
                 default:
-                    assert(0 && "Unsupported number of arguments for int function");
+                    TS_PRINTF_ERROR("Unsupported number of arguments for int function: %" PRIu32 "\n", arg_count);
             }
             obj.value.int64 = return_value;
             break;
@@ -2710,8 +2636,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                             return_value = found.value.uint_func(args[0].name);
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for uint function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[0].name);
                     }
                     break;
                 case 2:
@@ -2736,8 +2661,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.uint_func(args[0].value.int64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -2759,8 +2683,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.uint_func(args[0].value.uint64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -2782,8 +2705,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.uint_func(args[0].value.double64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -2805,8 +2727,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.uint_func(args[0].value.pointer, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -2828,13 +2749,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.uint_func(args[0].name, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for uint function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[0].name);
                     }
                     break;
                 case 3:
@@ -2862,8 +2781,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.int64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -2885,8 +2803,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.int64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -2908,8 +2825,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.int64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -2931,8 +2847,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.int64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -2954,13 +2869,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.int64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -2985,8 +2898,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.uint64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3008,8 +2920,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3031,8 +2942,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.uint64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3054,8 +2964,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3077,13 +2986,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -3108,8 +3015,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.double64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3131,8 +3037,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.double64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3154,8 +3059,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.double64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3177,8 +3081,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.double64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3200,13 +3103,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -3231,8 +3132,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.pointer, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3254,8 +3154,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3277,8 +3176,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.pointer, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3300,8 +3198,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3323,13 +3220,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -3354,8 +3249,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3377,8 +3271,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3400,8 +3293,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3423,8 +3315,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3446,22 +3337,19 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.uint_func(args[0].name, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for uint function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for uint function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for uint function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for uint function: %s\n", args[0].name);
                     }
                     break;
                 default:
-                    assert(0 && "Unsupported number of arguments for uint function");
+                    TS_PRINTF_ERROR("Unsupported number of arguments for uint function: %" PRIu32 "\n", arg_count);
             }
             obj.value.uint64 = return_value;
             break;
@@ -3491,8 +3379,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                             return_value = found.value.pointer_func(args[0].name);
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for pointer function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[0].name);
                     }
                     break;
                 case 2:
@@ -3517,8 +3404,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.pointer_func(args[0].value.int64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -3540,8 +3426,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.pointer_func(args[0].value.uint64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -3563,8 +3448,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.pointer_func(args[0].value.double64, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -3586,8 +3470,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.pointer_func(args[0].value.pointer, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeString:
@@ -3609,13 +3492,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                     return_value = found.value.pointer_func(args[0].name, args[1].name);
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for pointer function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[0].name);
                     }
                     break;
                 case 3:
@@ -3643,8 +3524,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.int64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3666,8 +3546,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.int64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3689,8 +3568,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.int64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3712,8 +3590,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.int64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3735,13 +3612,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.int64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeUInt:
@@ -3766,8 +3641,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3789,8 +3663,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3812,8 +3685,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3835,8 +3707,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.uint64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3858,13 +3729,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.uint64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypeDouble:
@@ -3889,8 +3758,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.double64, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -3912,8 +3780,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.double64, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -3935,8 +3802,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.double64, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -3958,8 +3824,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.double64, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -3981,13 +3846,11 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.double64, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         case TSNodeObjectTypePointer:
@@ -4012,8 +3875,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.int64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeUInt:
@@ -4035,8 +3897,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.uint64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeDouble:
@@ -4058,8 +3919,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.double64, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypePointer:
@@ -4081,8 +3941,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.pointer, args[1].value.pointer, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 case TSNodeObjectTypeString:
@@ -4104,28 +3963,25 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                                             return_value = found.value.pointer_func(args[0].value.pointer, args[1].name, args[2].name);
                                             break;
                                         default:
-                                            fprintf(stderr, "Unsupported argument type for pointer function");
-                                            abort();
+                                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[2].name);
                                     }
                                     break;
                                 default:
-                                    fprintf(stderr, "Unsupported argument type for pointer function");
-                                    abort();
+                                    TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[1].name);
                             }
                             break;
                         default:
-                            fprintf(stderr, "Unsupported argument type for pointer function");
-                            abort();
+                            TS_PRINTF_ERROR("Unsupported argument type for pointer function: %s\n", args[0].name);
                     }
                     break;
                 default:
-                    assert(0 && "Unsupported number of arguments for pointer function");
+                    TS_PRINTF_ERROR("Unknown function type during call: %" PRIu32 "\n", found.type);
             }
             obj.value.pointer = return_value;
             break;
         }
         default:
-            assert(0 && "Unknown function type during call");
+            TS_PRINTF_ERROR("Unknown function return type during call: %" PRIu32 "\n", found.type);
     }
 
     return obj;
@@ -4188,6 +4044,6 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_simulate(ts_node_named_child(node,0),var_count,vars);
     }
     else {
-        assert(0 && "Unknown node type");
+        TS_PRINTF_ERROR("Unsupported node type in interpreter: %s\n", ts_node_type(node));
     }
 }

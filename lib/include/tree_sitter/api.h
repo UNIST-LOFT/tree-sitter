@@ -1356,6 +1356,7 @@ typedef struct TSNodeObject {
     uint64_t (*uint_func)();
     void* (*pointer_func)();
   } value;
+  const void* reference;
 } TSNodeObject;
 
 /**

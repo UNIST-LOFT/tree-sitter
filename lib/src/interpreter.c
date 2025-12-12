@@ -3987,6 +3987,72 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     return obj;
 }
 
+TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+    TSNode left = ts_node_named_child(node, 0);
+    TSNode right = ts_node_named_child(node, 1);
+
+    // find LHS from vars
+    char* left_value = ts_node_find_value(left);
+    TSNodeObject left_obj;
+    int32_t found = 0;
+    for (size_t i=0;i<var_count;i++) {
+        if (strcmp(left_value,vars[i].name) == 0) {
+            left_obj = vars[i];
+            found = 1;
+        }
+    }
+    if (!found) {
+        TS_PRINTF_ERROR("Variable %s not found in variable list\n", left_value);
+    }
+
+    // Assign
+    TSNodeObject right_value = ts_interpreter_simulate(right, var_count, vars);
+    switch (left_obj.type) {
+        case TSNodeObjectTypeInt:
+            switch (left_obj.size) {
+                case 1:
+                    *(int8_t*)left_obj.reference = (int8_t)right_value.value.int64;
+                    break;
+                case 2:
+                    *(int16_t*)left_obj.reference = (int16_t)right_value.value.int64;
+                    break;
+                case 4:
+                    *(int32_t*)left_obj.reference = (int32_t)right_value.value.int64;
+                    break;
+                case 8:
+                    *(int64_t*)left_obj.reference = (int64_t)right_value.value.int64;
+                    break;
+                default:
+                    TS_PRINTF_ERROR("size of LHS of assignment %" PRIu64, left_obj.size);
+            }
+            break;
+        case TSNodeObjectTypeUInt:
+            switch (left_obj.size) {
+                case 1:
+                    *(uint8_t*)left_obj.reference = (uint8_t)right_value.value.uint64;
+                    break;
+                case 2:
+                    *(uint16_t*)left_obj.reference = (uint16_t)right_value.value.uint64;
+                    break;
+                case 4:
+                    *(uint32_t*)left_obj.reference = (uint32_t)right_value.value.uint64;
+                    break;
+                case 8:
+                    *(uint64_t*)left_obj.reference = (uint64_t)right_value.value.uint64;
+                    break;
+                default:
+                    TS_PRINTF_ERROR("size of LHS of assignment %" PRIu64, left_obj.size);
+            }
+            break;
+        case TSNodeObjectTypePointer:
+            *(void**)left_obj.reference = right_value.value.pointer;
+            break;
+        default:
+            TS_PRINTF_ERROR("Unsupported LHS type in assignment: %" PRIu32 "\n", left_obj.type);
+    }
+    return left_obj;
+}
+
 TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     if (strcmp(ts_node_type(node),"identifier")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
         return ts_interpreter_variable(node,var_count,vars);
@@ -3999,6 +4065,9 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     }
     else if (strcmp(ts_node_type(node),"binary_expression")==0) {
         return ts_interpreter_binary(node,var_count,vars);
+    }
+    else if (strcmp(ts_node_type(node), "assignment_expression") == 0) {
+        return ts_interpreter_assign(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"string_literal")==0) {
         TSNodeObject obj;

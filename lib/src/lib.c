@@ -17,3 +17,4 @@
 #include "./interpreter/function.c"
 #include "./interpreter/operator.c"
 #include "./interpreter/binary_expr.c"
+#include "./interpreter/assignment.c"

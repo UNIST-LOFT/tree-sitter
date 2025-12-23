@@ -4,7 +4,6 @@
 #include "./get_changed_ranges.c"
 #include "./language.c"
 #include "./lexer.c"
-#include "./interpreter.c"
 #include "./node.c"
 #include "./parser.c"
 #include "./query.c"

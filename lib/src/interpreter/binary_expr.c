@@ -4,6 +4,355 @@
 #include <assert.h>
 #include <inttypes.h>
 
+/* Arithmetic */
+#define HANDLE_ARITH_OP_INT(op, lhs, rhs, rhs_field, result) \
+    switch ((lhs).size) { \
+        case 1: \
+            result.type = TSNodeObjectTypeInt; \
+            result.value.int64 = *(int8_t*)(lhs).reference op (int8_t)(rhs).value.rhs_field; \
+            break; \
+        case 2: \
+            result.type = TSNodeObjectTypeInt; \
+            result.value.int64 = *(int16_t*)(lhs).reference op (int16_t)(rhs).value.rhs_field; \
+            break; \
+        case 4: \
+            result.type = TSNodeObjectTypeInt; \
+            result.value.int64 = *(int32_t*)(lhs).reference op (int32_t)(rhs).value.rhs_field; \
+            break; \
+        case 8: \
+            result.type = TSNodeObjectTypeInt; \
+            result.value.int64 = *(int64_t*)(lhs).reference op (int64_t)(rhs).value.rhs_field; \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
+    }
+
+#define HANDLE_ARITH_OP_UINT(op, lhs, rhs, rhs_field, result) \
+    switch ((lhs).size) { \
+        case 1: \
+            result.type = TSNodeObjectTypeUInt; \
+            result.value.uint64 = *(uint8_t*)(lhs).reference op (uint8_t)(rhs).value.rhs_field; \
+            break; \
+        case 2: \
+            result.type = TSNodeObjectTypeUInt; \
+            result.value.uint64 = *(uint16_t*)(lhs).reference op (uint16_t)(rhs).value.rhs_field; \
+            break; \
+        case 4: \
+            result.type = TSNodeObjectTypeUInt; \
+            result.value.uint64 = *(uint32_t*)(lhs).reference op (uint32_t)(rhs).value.rhs_field; \
+            break; \
+        case 8: \
+            result.type = TSNodeObjectTypeUInt; \
+            result.value.uint64 = *(uint64_t*)(lhs).reference op (uint64_t)(rhs).value.rhs_field; \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
+    }
+
+#define HANDLE_ARITH_OP_DOUBLE(op, lhs, rhs, rhs_field, result) \
+    switch ((lhs).size) { \
+        case 4: \
+            result.type = TSNodeObjectTypeDouble; \
+            result.value.double64 = *(float*)(lhs).reference op (float)(rhs).value.rhs_field; \
+            break; \
+        case 8: \
+            result.type = TSNodeObjectTypeDouble; \
+            result.value.double64 = *(double*)(lhs).reference op (double)(rhs).value.rhs_field; \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
+    }
+
+#define HANDLE_ARITH_OP(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to int: %d\n", (rhs).type); \
+            } \
+            break; \
+        case TSNodeObjectTypeUInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to uint: %d\n", (rhs).type); \
+            } \
+            break; \
+        case TSNodeObjectTypeDouble: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_DOUBLE(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_DOUBLE(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_ARITH_OP_DOUBLE(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to double: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
+#define HANDLE_ARITH_SUB(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+        case TSNodeObjectTypeUInt: \
+        case TSNodeObjectTypeDouble: \
+            HANDLE_ARITH_OP(op, lhs, rhs, result) \
+            break; \
+        case TSNodeObjectTypePointer: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    result.type = TSNodeObjectTypePointer; \
+                    result.size = (lhs).size; \
+                    result.value.pointer = *(uint8_t**)(lhs).reference op ((int64_t)(rhs).value.int64) * (rhs).size; \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    result.type = TSNodeObjectTypePointer; \
+                    result.size = (lhs).size; \
+                    result.value.pointer = *(uint8_t**)(lhs).reference op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
+                    break; \
+                case TSNodeObjectTypePointer: \
+                    result.type = TSNodeObjectTypeInt; \
+                    result.size = (lhs).size; \
+                    result.value.int64 = *(void**)(lhs).reference op (rhs).value.pointer; \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
+#define HANDLE_ARITH_ADD(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+        case TSNodeObjectTypeUInt: \
+        case TSNodeObjectTypeDouble: \
+            HANDLE_ARITH_OP(op, lhs, rhs, result) \
+            break; \
+        case TSNodeObjectTypePointer: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    result.type = TSNodeObjectTypePointer; \
+                    result.size = (lhs).size; \
+                    result.value.pointer = *(uint8_t**)(lhs).reference op ((int64_t)(rhs).value.int64) * (rhs).size; \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    result.type = TSNodeObjectTypePointer; \
+                    result.size = (lhs).size; \
+                    result.value.pointer = *(uint8_t**)(lhs).reference op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
+#define HANDLE_ARITH_NO_DOUBLE(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to int: %d\n", (rhs).type); \
+            } \
+            break; \
+        case TSNodeObjectTypeUInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to uint: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
+/* Conditional */
+#define HANDLE_COND_OP_INT(op, lhs, rhs, rhs_field, result) \
+    switch ((lhs).size) { \
+        case 1: \
+            result.value.int64 = *(int8_t*)(lhs).reference op (int8_t)(rhs).value.rhs_field; \
+            break; \
+        case 2: \
+            result.value.int64 = *(int16_t*)(lhs).reference op (int16_t)(rhs).value.rhs_field; \
+            break; \
+        case 4: \
+            result.value.int64 = *(int32_t*)(lhs).reference op (int32_t)(rhs).value.rhs_field; \
+            break; \
+        case 8: \
+            result.value.int64 = *(int64_t*)(lhs).reference op (int64_t)(rhs).value.rhs_field; \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
+    }
+
+#define HANDLE_COND_OP_UINT(op, lhs, rhs, rhs_field, result) \
+    switch ((lhs).size) { \
+        case 1: \
+            result.value.int64 = *(uint8_t*)(lhs).reference op (uint8_t)(rhs).value.rhs_field; \
+            break; \
+        case 2: \
+            result.value.int64 = *(uint16_t*)(lhs).reference op (uint16_t)(rhs).value.rhs_field; \
+            break; \
+        case 4: \
+            result.value.int64 = *(uint32_t*)(lhs).reference op (uint32_t)(rhs).value.rhs_field; \
+            break; \
+        case 8: \
+            result.value.int64 = *(uint64_t*)(lhs).reference op (uint64_t)(rhs).value.rhs_field; \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
+    }
+
+#define HANDLE_COND_OP_DOUBLE(op, lhs, rhs, rhs_field, result) \
+    switch ((lhs).size) { \
+        case 4: \
+            result.value.int64 = *(float*)(lhs).reference op (float)(rhs).value.rhs_field; \
+            break; \
+        case 8: \
+            result.value.int64 = *(double*)(lhs).reference op (double)(rhs).value.rhs_field; \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
+    }
+
+#define HANDLE_COND_OP(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_COND_OP_INT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_COND_OP_INT(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_COND_OP_INT(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to int: %d\n", (rhs).type); \
+            } \
+            break; \
+        case TSNodeObjectTypeUInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_COND_OP_UINT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_COND_OP_UINT(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_COND_OP_UINT(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to uint: %d\n", (rhs).type); \
+            } \
+            break; \
+        case TSNodeObjectTypeDouble: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_COND_OP_DOUBLE(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_COND_OP_DOUBLE(op, lhs, rhs, uint64, result); \
+                    break; \
+                case TSNodeObjectTypeDouble: \
+                    HANDLE_COND_OP_DOUBLE(op, lhs, rhs, double64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to double: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
+#define HANDLE_COND(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+        case TSNodeObjectTypeUInt: \
+        case TSNodeObjectTypeDouble: \
+            HANDLE_COND_OP(op, lhs, rhs, result) \
+            break; \
+        case TSNodeObjectTypePointer: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypePointer: \
+                    result.value.int64 = *(void**)(lhs).reference op (rhs).value.pointer; \
+                    break; \
+                case TSNodeObjectTypeInt: \
+                case TSNodeObjectTypeUInt: \
+                    result.value.int64 = *(void**)(lhs).reference op NULL; \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to pointer: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
+#define HANDLE_COND_COMPARE(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+        case TSNodeObjectTypeUInt: \
+        case TSNodeObjectTypeDouble: \
+            HANDLE_COND_OP(op, lhs, rhs, result) \
+            break; \
+        case TSNodeObjectTypePointer: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypePointer: \
+                    result.value.int64 = *(void**)(lhs).reference op (rhs).value.pointer; \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to pointer: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
 uint64_t size_max(uint64_t a, uint64_t b) {
     return a>b?a:b;
 }
@@ -19,762 +368,55 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 
     /* Arithmetic */
     if (strcmp(op,"+")==0) {
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeInt;
-                        result.value.int64=obj1.value.int64+obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.int64+obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.int64+obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-            
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64+obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64+obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.uint64+obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64+obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64+obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64+obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-            
-            default:
-                TS_PRINTF_ERROR("Unknown type in addition: %d\n", obj1.type);
-        }
+        HANDLE_ARITH_ADD(+, obj1, obj2, result);
     }
     else if (strcmp(op,"-")==0) {
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeInt;
-                        result.value.int64=obj1.value.int64-obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.int64-obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.int64-obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-            
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64-obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64-obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.uint64-obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64-obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64-obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64-obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-            
-            default:
-                TS_PRINTF_ERROR("Unknown type in subtraction: %d\n", obj1.type);
-        }
+        // Suppress warning about ptr - ptr. Some codes subtract between two ptrs to get the offset or length.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+        HANDLE_ARITH_SUB(-, obj1, obj2, result);
+#pragma GCC diagnostic pop
     }
     else if (strcmp(op,"*")==0) {
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeInt;
-                        result.value.int64=obj1.value.int64*obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.int64*obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.int64*obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-            
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64*obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64*obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.uint64*obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64*obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64*obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64*obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-            
-            default:
-                TS_PRINTF_ERROR("Unknown type in multiplication: %d\n", obj1.type);
-        }
+        HANDLE_ARITH_OP(*, obj1, obj2, result);
     }
     else if (strcmp(op,"/")==0) {
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeInt;
-                        result.value.int64=obj1.value.int64/obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.int64/obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.int64/obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64/obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64/obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.uint64/obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64/obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64/obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.type=TSNodeObjectTypeDouble;
-                        result.value.double64=obj1.value.double64/obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in division: %d\n", obj1.type);
-        }
+        HANDLE_ARITH_OP(/, obj1, obj2, result);
     }
     else if (strcmp(op,"%%")==0) {
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeInt;
-                        result.value.int64=obj1.value.int64%obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.int64%obj2.value.uint64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64%obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.type=TSNodeObjectTypeUInt;
-                        result.value.uint64=obj1.value.uint64%obj2.value.uint64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in modulus: %d\n", obj1.type);
-        }
+        HANDLE_ARITH_NO_DOUBLE(%, obj1, obj2, result);
     }
 
     /* Comparison */
     else if (strcmp(op,"==")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.int64==obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64==(int64_t)obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.int64==obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.int64 == (int64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.uint64==obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.uint64==obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.uint64==obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.uint64 == (uint64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.double64==obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.double64==obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.double64==obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypePointer:
-                switch (obj2.type) {
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.pointer==obj2.value.pointer;
-                        break;
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.pointer==NULL;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.pointer==NULL;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in equality: %d\n", obj1.type);
-        }
+        HANDLE_COND(==, obj1, obj2, result);
     }
     else if (strcmp(op,"!=")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.int64!=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64!=(int64_t)obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.int64!=obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.int64 != (int64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.uint64!=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.uint64!=obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.uint64!=obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.uint64 != (uint64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.double64!=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.double64!=obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.double64!=obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypePointer:
-                switch (obj2.type) {
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.pointer!=obj2.value.pointer;
-                        break;
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.pointer!=NULL;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.pointer!=NULL;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in inequality: %d\n", obj1.type);
-        }
+        HANDLE_COND(!=, obj1, obj2, result);
     }
     else if (strcmp(op,"<")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.int64<obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64<(int64_t)obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.int64<obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.int64 < (int64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.uint64<obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.uint64<obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.uint64<obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.uint64 < (uint64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.double64<obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.double64<obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.double64<obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypePointer:
-                switch (obj2.type) {
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.pointer<obj2.value.pointer;
-                        break;
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.pointer<(int64_t)NULL;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=(int64_t)obj1.value.pointer<(int64_t)NULL;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in less than: %d\n", obj1.type);
-        }
+        HANDLE_COND_COMPARE(<, obj1, obj2, result);
     }
     else if (strcmp(op,">")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.int64>obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64>(int64_t)obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.int64>obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.int64 > (int64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-    
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.uint64>obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.uint64>obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.uint64>obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.uint64 > (uint64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.double64>obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.double64>obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.double64>obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypePointer:
-                switch (obj2.type) {
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.pointer>obj2.value.pointer;
-                        break;
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.pointer>(int64_t)NULL;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=(int64_t)obj1.value.pointer>(int64_t)NULL;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in greater than: %d\n", obj1.type);
-        }
+        HANDLE_COND_COMPARE(>, obj1, obj2, result);
     }
     else if (strcmp(op,"<=")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.int64<=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64<=(int64_t)obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.int64<=obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.int64 <= (int64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.uint64<=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.uint64<=obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.uint64<=obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.uint64 <= (uint64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.double64<=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.double64<=obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.double64<=obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypePointer:
-                switch (obj2.type) {
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.pointer<=obj2.value.pointer;
-                        break;
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.pointer<=(int64_t)NULL;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=(int64_t)obj1.value.pointer<=(int64_t)NULL;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in less than or equal: %d\n", obj1.type);
-        }
+        HANDLE_COND_COMPARE(<=, obj1, obj2, result);
     }
     else if (strcmp(op,">=")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        switch (obj1.type) {
-            case TSNodeObjectTypeInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.int64>=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.int64>=(int64_t)obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.int64>=obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.int64 >= (int64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeUInt:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.uint64>=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.uint64>=obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.uint64>=obj2.value.double64;
-                        break;
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.uint64 >= (uint64_t)obj2.value.pointer;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypeDouble:
-                switch (obj2.type) {
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=obj1.value.double64>=obj2.value.int64;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=obj1.value.double64>=obj2.value.uint64;
-                        break;
-                    case TSNodeObjectTypeDouble:
-                        result.value.int64=obj1.value.double64>=obj2.value.double64;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            case TSNodeObjectTypePointer:
-                switch (obj2.type) {
-                    case TSNodeObjectTypePointer:
-                        result.value.int64=obj1.value.pointer>=obj2.value.pointer;
-                        break;
-                    case TSNodeObjectTypeInt:
-                        result.value.int64=(int64_t)obj1.value.pointer>=(int64_t)NULL;
-                        break;
-                    case TSNodeObjectTypeUInt:
-                        result.value.int64=(int64_t)obj1.value.pointer>=(int64_t)NULL;
-                        break;
-                    default:
-                        TS_PRINTF_ERROR("Unknown type: %d\n", obj2.type);
-                }
-                break;
-
-            default:
-                TS_PRINTF_ERROR("Unknown type in greater than or equal: %d\n", obj1.type);
-        }
+        HANDLE_COND_COMPARE(>=, obj1, obj2, result);
     }
 
     /* Relational */

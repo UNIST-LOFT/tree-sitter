@@ -8,8 +8,7 @@ PCLIBDIR ?= $(LIBDIR)/pkgconfig
 
 # collect sources
 ifneq ($(AMALGAMATED),1)
-	SRC := $(wildcard lib/src/*.c)
-	SRC := $(wildcard lib/src/interpreter/*.c)
+	SRC := $(wildcard lib/src/*.c) $(wildcard lib/src/interpreter/*.c)
 	# do not double-include amalgamation
 	SRC := $(filter-out lib/src/lib.c,$(SRC))
 else
@@ -21,6 +20,7 @@ OBJ := $(SRC:.c=.o)
 # define default flags, and override to append mandatory flags
 override CFLAGS := -O3 -std=gnu11 -fPIC -fvisibility=hidden -Wall -Wextra -Wshadow -pedantic $(CFLAGS)
 override CFLAGS += -Ilib/src -Ilib/src/wasm -Ilib/include
+override LDFLAGS := -lffi $(LDFLAGS)
 
 # ABI versioning
 SONAME_MAJOR := 0

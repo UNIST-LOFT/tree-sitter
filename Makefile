@@ -9,6 +9,7 @@ PCLIBDIR ?= $(LIBDIR)/pkgconfig
 # collect sources
 ifneq ($(AMALGAMATED),1)
 	SRC := $(wildcard lib/src/*.c)
+	SRC := $(wildcard lib/src/interpreter/*.c)
 	# do not double-include amalgamation
 	SRC := $(filter-out lib/src/lib.c,$(SRC))
 else

@@ -1400,10 +1400,22 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 /**
  * Create new TSNodeFunction of the given function call.
  * 
+ * It supports functions with void, int, uint, and pointer return types.
+ * Max number of arguments is 3.
+ * 
  * It internally calls `ts_interpreter_simulate` with the arguments.
  * Thus, every arguments must be acceptable by this interpreter.
  */
 TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Create new TSNodeObject of the given assignment operation.
+ * 
+ * It internally calls `ts_interpreter_simulate` with the right operand.
+ * It updates the variable value in vars.
+ * Normal assignment and compound assignment (+=, -=, etc.) are supported.
+ */
+TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject* vars);
 
 /*************************************/
 /*  Section - Utilities (FreddyYJ)   */

@@ -13,3 +13,7 @@
 #include "./tree_cursor.c"
 #include "./tree.c"
 #include "./wasm.c"
+#include "./interpreter/interpreter.c"
+#include "./interpreter/function.c"
+#include "./interpreter/operator.c"
+#include "./interpreter/binary_expr.c"

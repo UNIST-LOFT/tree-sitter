@@ -2219,7 +2219,8 @@ void ts_add_value(TSNode node,const char* code) {
     }
   }
   else if (strcmp(ts_node_type(node),"binary_expression")==0 || 
-           strcmp(ts_node_type(node),"boolean_operator")==0) {
+           strcmp(ts_node_type(node),"boolean_operator")==0 ||
+           strcmp(ts_node_type(node),"assignment_expression")==0) {
     assert(ts_node_named_child_count(node)>=2);
     // Remove left and right operand to get operator
     TSNode left = ts_node_named_child(node, 0);

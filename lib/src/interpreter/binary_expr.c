@@ -353,6 +353,37 @@
             TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
     }
 
+/* Bit-wise*/
+#define HANDLE_BITWISE(op, lhs, rhs, result) \
+    switch ((lhs).type) { \
+        case TSNodeObjectTypeInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_INT(op, lhs, rhs, uint64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to int: %d\n", (rhs).type); \
+            } \
+            break; \
+        case TSNodeObjectTypeUInt: \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, int64, result); \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    HANDLE_ARITH_OP_UINT(op, lhs, rhs, uint64, result); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op to uint: %d\n", (rhs).type); \
+            } \
+            break; \
+        default: \
+            TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
+    }
+
 uint64_t size_max(uint64_t a, uint64_t b) {
     return a>b?a:b;
 }
@@ -483,6 +514,23 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             default:
                 TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj1.type);
         }
+    }
+
+    /* Bit-wise */
+    else if (strcmp(op, "&") == 0) {
+        HANDLE_BITWISE(&, obj1, obj2, result);
+    }
+    else if (strcmp(op, "|") == 0) {
+        HANDLE_BITWISE(|, obj1, obj2, result);
+    }
+    else if (strcmp(op, "^") == 0) {
+        HANDLE_BITWISE(^, obj1, obj2, result);
+    }
+    else if (strcmp(op, "<<") == 0) {
+        HANDLE_BITWISE(<<, obj1, obj2, result);
+    }
+    else if (strcmp(op, ">>") == 0) {
+        HANDLE_BITWISE(>>, obj1, obj2, result);
     }
 
     else {

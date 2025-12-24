@@ -9,19 +9,19 @@
     switch ((lhs).size) { \
         case 1: \
             result.type = TSNodeObjectTypeInt; \
-            result.value.int64 = *(int8_t*)(lhs).reference op (int8_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int8_t)(lhs).value.int64 op (int8_t)(rhs).value.rhs_field; \
             break; \
         case 2: \
             result.type = TSNodeObjectTypeInt; \
-            result.value.int64 = *(int16_t*)(lhs).reference op (int16_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int16_t)(lhs).value.int64 op (int16_t)(rhs).value.rhs_field; \
             break; \
         case 4: \
             result.type = TSNodeObjectTypeInt; \
-            result.value.int64 = *(int32_t*)(lhs).reference op (int32_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int32_t)(lhs).value.int64 op (int32_t)(rhs).value.rhs_field; \
             break; \
         case 8: \
             result.type = TSNodeObjectTypeInt; \
-            result.value.int64 = *(int64_t*)(lhs).reference op (int64_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int64_t)(lhs).value.int64 op (int64_t)(rhs).value.rhs_field; \
             break; \
         default: \
             TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
@@ -31,19 +31,19 @@
     switch ((lhs).size) { \
         case 1: \
             result.type = TSNodeObjectTypeUInt; \
-            result.value.uint64 = *(uint8_t*)(lhs).reference op (uint8_t)(rhs).value.rhs_field; \
+            result.value.uint64 = (uint8_t)(lhs).value.uint64 op (uint8_t)(rhs).value.rhs_field; \
             break; \
         case 2: \
             result.type = TSNodeObjectTypeUInt; \
-            result.value.uint64 = *(uint16_t*)(lhs).reference op (uint16_t)(rhs).value.rhs_field; \
+            result.value.uint64 = (uint16_t)(lhs).value.uint64 op (uint16_t)(rhs).value.rhs_field; \
             break; \
         case 4: \
             result.type = TSNodeObjectTypeUInt; \
-            result.value.uint64 = *(uint32_t*)(lhs).reference op (uint32_t)(rhs).value.rhs_field; \
+            result.value.uint64 = (uint32_t)(lhs).value.uint64 op (uint32_t)(rhs).value.rhs_field; \
             break; \
         case 8: \
             result.type = TSNodeObjectTypeUInt; \
-            result.value.uint64 = *(uint64_t*)(lhs).reference op (uint64_t)(rhs).value.rhs_field; \
+            result.value.uint64 = (uint64_t)(lhs).value.uint64 op (uint64_t)(rhs).value.rhs_field; \
             break; \
         default: \
             TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
@@ -53,11 +53,11 @@
     switch ((lhs).size) { \
         case 4: \
             result.type = TSNodeObjectTypeDouble; \
-            result.value.double64 = *(float*)(lhs).reference op (float)(rhs).value.rhs_field; \
+            result.value.double64 = (float)(lhs).value.double64 op (float)(rhs).value.rhs_field; \
             break; \
         case 8: \
             result.type = TSNodeObjectTypeDouble; \
-            result.value.double64 = *(double*)(lhs).reference op (double)(rhs).value.rhs_field; \
+            result.value.double64 = (double)(lhs).value.double64 op (double)(rhs).value.rhs_field; \
             break; \
         default: \
             TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
@@ -126,17 +126,17 @@
                 case TSNodeObjectTypeInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = *(uint8_t**)(lhs).reference op ((int64_t)(rhs).value.int64) * (rhs).size; \
+                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((int64_t)(rhs).value.int64) * (rhs).size; \
                     break; \
                 case TSNodeObjectTypeUInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = *(uint8_t**)(lhs).reference op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
+                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
                     break; \
                 case TSNodeObjectTypePointer: \
                     result.type = TSNodeObjectTypeInt; \
                     result.size = (lhs).size; \
-                    result.value.int64 = *(void**)(lhs).reference op (rhs).value.pointer; \
+                    result.value.int64 = (void*)(lhs).value.pointer op (rhs).value.pointer; \
                     break; \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %d\n", (rhs).type); \
@@ -158,12 +158,12 @@
                 case TSNodeObjectTypeInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = *(uint8_t**)(lhs).reference op ((int64_t)(rhs).value.int64) * (rhs).size; \
+                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((int64_t)(rhs).value.int64) * (rhs).size; \
                     break; \
                 case TSNodeObjectTypeUInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = *(uint8_t**)(lhs).reference op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
+                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
                     break; \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %d\n", (rhs).type); \
@@ -213,16 +213,16 @@
 #define HANDLE_COND_OP_INT(op, lhs, rhs, rhs_field, result) \
     switch ((lhs).size) { \
         case 1: \
-            result.value.int64 = *(int8_t*)(lhs).reference op (int8_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int8_t)(lhs).value.int64 op (int8_t)(rhs).value.rhs_field; \
             break; \
         case 2: \
-            result.value.int64 = *(int16_t*)(lhs).reference op (int16_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int16_t)(lhs).value.int64 op (int16_t)(rhs).value.rhs_field; \
             break; \
         case 4: \
-            result.value.int64 = *(int32_t*)(lhs).reference op (int32_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int32_t)(lhs).value.int64 op (int32_t)(rhs).value.rhs_field; \
             break; \
         case 8: \
-            result.value.int64 = *(int64_t*)(lhs).reference op (int64_t)(rhs).value.rhs_field; \
+            result.value.int64 = (int64_t)(lhs).value.int64 op (int64_t)(rhs).value.rhs_field; \
             break; \
         default: \
             TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
@@ -231,16 +231,16 @@
 #define HANDLE_COND_OP_UINT(op, lhs, rhs, rhs_field, result) \
     switch ((lhs).size) { \
         case 1: \
-            result.value.int64 = *(uint8_t*)(lhs).reference op (uint8_t)(rhs).value.rhs_field; \
+            result.value.int64 = (uint8_t)(lhs).value.uint64 op (uint8_t)(rhs).value.rhs_field; \
             break; \
         case 2: \
-            result.value.int64 = *(uint16_t*)(lhs).reference op (uint16_t)(rhs).value.rhs_field; \
+            result.value.int64 = (uint16_t)(lhs).value.uint64 op (uint16_t)(rhs).value.rhs_field; \
             break; \
         case 4: \
-            result.value.int64 = *(uint32_t*)(lhs).reference op (uint32_t)(rhs).value.rhs_field; \
+            result.value.int64 = (uint32_t)(lhs).value.uint64 op (uint32_t)(rhs).value.rhs_field; \
             break; \
         case 8: \
-            result.value.int64 = *(uint64_t*)(lhs).reference op (uint64_t)(rhs).value.rhs_field; \
+            result.value.int64 = (uint64_t)(lhs).value.uint64 op (uint64_t)(rhs).value.rhs_field; \
             break; \
         default: \
             TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
@@ -249,10 +249,10 @@
 #define HANDLE_COND_OP_DOUBLE(op, lhs, rhs, rhs_field, result) \
     switch ((lhs).size) { \
         case 4: \
-            result.value.int64 = *(float*)(lhs).reference op (float)(rhs).value.rhs_field; \
+            result.value.int64 = (float)(lhs).value.double64 op (float)(rhs).value.rhs_field; \
             break; \
         case 8: \
-            result.value.int64 = *(double*)(lhs).reference op (double)(rhs).value.rhs_field; \
+            result.value.int64 = (double)(lhs).value.double64 op (double)(rhs).value.rhs_field; \
             break; \
         default: \
             TS_PRINTF_ERROR("size of LHS of binary op %" PRIu64, (lhs).size); \
@@ -319,11 +319,11 @@
         case TSNodeObjectTypePointer: \
             switch ((rhs).type) { \
                 case TSNodeObjectTypePointer: \
-                    result.value.int64 = *(void**)(lhs).reference op (rhs).value.pointer; \
+                    result.value.int64 = (void*)(lhs).value.pointer op (rhs).value.pointer; \
                     break; \
                 case TSNodeObjectTypeInt: \
                 case TSNodeObjectTypeUInt: \
-                    result.value.int64 = *(void**)(lhs).reference op NULL; \
+                    result.value.int64 = (void*)(lhs).value.pointer op NULL; \
                     break; \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in binary op to pointer: %d\n", (rhs).type); \
@@ -343,7 +343,7 @@
         case TSNodeObjectTypePointer: \
             switch ((rhs).type) { \
                 case TSNodeObjectTypePointer: \
-                    result.value.int64 = *(void**)(lhs).reference op (rhs).value.pointer; \
+                    result.value.int64 = (void*)(lhs).value.pointer op (rhs).value.pointer; \
                     break; \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in binary op to pointer: %d\n", (rhs).type); \

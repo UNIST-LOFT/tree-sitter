@@ -158,6 +158,17 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.value.pointer=NULL;
         return obj;
     }
+    else if (strcmp(ts_node_type(node), "conditional_expression") == 0) {
+        TSNodeObject obj;
+        TSNodeObject cond_result = ts_interpreter_simulate(ts_node_named_child(node, 0),var_count, vars);
+        if (cond_result.value.int64) {
+            obj = ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars);
+        }
+        else {
+            obj = ts_interpreter_simulate(ts_node_named_child(node, 2), var_count, vars);
+        }
+        return obj;
+    }
     else if (strcmp(ts_node_type(node),"call_expression")==0) {
         return ts_interpreter_function(node,var_count,vars);
     }

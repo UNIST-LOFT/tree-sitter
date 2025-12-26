@@ -172,6 +172,13 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     else if (strcmp(ts_node_type(node),"call_expression")==0) {
         return ts_interpreter_function(node,var_count,vars);
     }
+    else if (strcmp(ts_node_type(node), "compound_statement") == 0) {
+        TSNodeObject obj;
+        for (size_t i = 0; i < ts_node_named_child_count(node); i++) {
+            obj = ts_interpreter_simulate(ts_node_named_child(node, i), var_count, vars);
+        }
+        return obj;
+    }
     else if (strcmp(ts_node_type(node),"parenthesized_expression")==0 ||
             strcmp(ts_node_type(node),"expression_statement")==0 ||
             strcmp(ts_node_type(node),"ERROR")==0) {

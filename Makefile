@@ -74,7 +74,7 @@ install: all
 	install -m644 tree-sitter.pc '$(DESTDIR)$(PCLIBDIR)'/
 
 clean:
-	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
+	rm -f lib/src/*.o lib/src/interpreter/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
 
 .PHONY: all install clean
 

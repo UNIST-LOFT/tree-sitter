@@ -107,6 +107,35 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
     return obj;
 }
 
+
+TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+    // Base is pointer variable
+    TSNodeObject base_obj = ts_interpreter_variable(ts_node_named_child(node, 0), var_count, vars);
+    TSNodeObject index_obj = ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars);
+
+    TSNodeObject obj;
+    obj.name = NULL; // No name for subscript result
+    obj.node = node;
+    obj.size = base_obj.array_element_size;
+    // TODO: Handle other types: add pointee type information in TSNodeObject
+    obj.type = TSNodeObjectTypePointer;
+    int32_t index;
+    if (index_obj.type == TSNodeObjectTypeInt) {
+        index = (int32_t)(index_obj.value.int64);
+    }
+    else if (index_obj.type == TSNodeObjectTypeUInt) {
+        index = (int32_t)(index_obj.value.uint64);
+    }
+    else {
+        TS_PRINTF_ERROR("Array index must be int or uint type\n");
+    }
+    obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+    obj.value.int64 = *((int32_t*)obj.reference); // Store pointer value as int64
+    printf("Subscript result reference: %p, value: %" PRId64 "\n", obj.reference, obj.value.int64);
+    obj.array_element_size = 0; // Not an array
+    return obj;
+}
+
 TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     if (strcmp(ts_node_type(node),"identifier")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
         return ts_interpreter_variable(node,var_count,vars);
@@ -179,8 +208,12 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         }
         return obj;
     }
+    else if (strcmp(ts_node_type(node), "subscript_expression") == 0) {
+        return ts_interpreter_subscript(node, var_count, vars);
+    }
     else if (strcmp(ts_node_type(node),"parenthesized_expression")==0 ||
             strcmp(ts_node_type(node),"expression_statement")==0 ||
+            strcmp(ts_node_type(node),"subscript_argument_list")==0 ||
             strcmp(ts_node_type(node),"ERROR")==0) {
         return ts_interpreter_simulate(ts_node_named_child(node,0),var_count,vars);
     }

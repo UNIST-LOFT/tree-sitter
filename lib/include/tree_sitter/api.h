@@ -1357,6 +1357,7 @@ typedef struct TSNodeObject {
     void* (*pointer_func)();
   } value;
   const void* reference;
+  uint32_t array_element_size;
 } TSNodeObject;
 
 /**
@@ -1407,6 +1408,16 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
  * Thus, every arguments must be acceptable by this interpreter.
  */
 TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
+/**
+ * Create new TSNodeObject of the given array subscript operation.
+ * 
+ * It assumes the base is pointer type.
+ * Array is also a pointer type in this interpreter.
+ * 
+ * It internally calls `ts_interpreter_simulate` with index operands.
+ */
+TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObject* vars);
 
 /**
  * Create new TSNodeObject of the given assignment operation.

@@ -56,7 +56,19 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
     else if (strcmp(op,"!")==0) {
         result.size=sizeof(int);
         result.type=TSNodeObjectTypeInt;
-        result.value.int64=!obj.value.int64;
+        switch (obj.type) {
+            case TSNodeObjectTypeInt:
+                result.value.int64=!obj.value.int64;
+                break;
+            case TSNodeObjectTypeUInt:
+                result.value.int64=!obj.value.uint64;
+                break;
+            case TSNodeObjectTypeDouble:
+                result.value.int64=!obj.value.double64;
+                break;
+            default:
+                TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
+        }
     }
     else if (strcmp(op,"++")==0) {
         result.size=obj.size;

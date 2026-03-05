@@ -153,11 +153,17 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_assign(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"string_literal")==0) {
+        // For string literal, we convert it to pointer of char(s)
         TSNodeObject obj;
-        obj.name=ts_node_find_value(node);
+        char* value = malloc(sizeof(char)*(strlen(ts_node_find_value(node))+1));
+        strcpy(value, ts_node_find_value(node));
+        value[strlen(value)] = '\0';
+        obj.name=value;
         obj.node=node;
         obj.size=sizeof(char)*(strlen(ts_node_find_value(node))-2); // Remove quotes
         obj.type=TSNodeObjectTypeString;
+        obj.reference=&value;
+        obj.value.pointer=value;
         return obj;
     }
     else if (strcmp(ts_node_type(node),"true")==0) {

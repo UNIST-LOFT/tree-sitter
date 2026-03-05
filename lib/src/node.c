@@ -782,20 +782,20 @@ char* ts_node_token(TSNode self,const char* full_code) {
 }
 
 void ts_node_print_tree(TSNode self, int32_t cur_indent) {
-    printf("%*s", cur_indent, "");
+    fprintf(stderr, "%*s", cur_indent, "");
 
   // Print the current node's type.
-  printf("- %s", ts_node_type(self));
+  fprintf(stderr, "- %s", ts_node_type(self));
 
   char* value=ts_node_find_value(self);
   if (value) {
-    printf(": %s", value);
+    fprintf(stderr, ": %s", value);
   }
   char* value_2=ts_node_find_value_2(self);
   if (value_2) {
-    printf(", %s", value_2);
+    fprintf(stderr, ", %s", value_2);
   }
-  printf("\n");
+  fprintf(stderr, "\n");
 
   // Print all of the current node's children.
   for (uint32_t i = 0; i < ts_node_named_child_count(self); i++) {

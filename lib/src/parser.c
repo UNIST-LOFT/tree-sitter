@@ -2287,7 +2287,8 @@ void ts_add_value(TSNode node,const char* code) {
     }
   }
   else if (strcmp(ts_node_type(node),"unary_expression")==0 ||
-           strcmp(ts_node_type(node),"unary_operator")==0) {
+           strcmp(ts_node_type(node),"unary_operator")==0 ||
+           strcmp(ts_node_type(node),"update_expression")==0) { // update_expression: ++/-- before/after operand
     assert(ts_node_named_child_count(node)==1);
     // Find this operator is prefix or postfix
     TSNode child = ts_node_named_child(node, 0);
@@ -2298,7 +2299,7 @@ void ts_add_value(TSNode node,const char* code) {
       // Postfix
       if (!value_exist(node)){
         char* op=trim(ts_substr(code,ts_node_end_byte(child),end));
-        char new_op[10];
+        char *new_op = ts_malloc(strlen(op)+2);
         sprintf(new_op,"p%s",op);
         tree->node_value_keys[tree->node_value_count]=node;
         tree->node_value_values[tree->node_value_count]=new_op;

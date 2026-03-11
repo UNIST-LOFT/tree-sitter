@@ -143,7 +143,8 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     else if (strcmp(ts_node_type(node),"number_literal")==0 || strcmp(ts_node_type(node),"char_literal")==0) {
         return ts_interpreter_literal(node);
     }
-    else if (strcmp(ts_node_type(node),"unary_expression")==0) {
+    else if (strcmp(ts_node_type(node),"unary_expression")==0 ||
+             strcmp(ts_node_type(node),"update_expression")==0) {
         return ts_interpreter_unary(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"binary_expression")==0) {

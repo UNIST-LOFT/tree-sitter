@@ -76,10 +76,20 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
             case TSNodeObjectTypeInt:
                 result.type=TSNodeObjectTypeInt;
                 result.value.int64=++obj.value.int64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(int64_t*)result.reference = result.value.int64; // Update the original variable
                 break;
             case TSNodeObjectTypeUInt:
                 result.type=TSNodeObjectTypeUInt;
                 result.value.uint64=++obj.value.uint64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(uint64_t*)result.reference = result.value.uint64; // Update the original variable
+                break;
+            case TSNodeObjectTypePointer:
+                result.type=TSNodeObjectTypePointer;
+                result.value.pointer=(void*)((uint8_t*)obj.value.pointer+(obj.array_element_size));
+                result.reference=obj.reference; // Keep the reference to update the original pointer
+                *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
@@ -91,10 +101,20 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
             case TSNodeObjectTypeInt:
                 result.type=TSNodeObjectTypeInt;
                 result.value.int64=--obj.value.int64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(int64_t*)result.reference = result.value.int64; // Update the original variable
                 break;
             case TSNodeObjectTypeUInt:
                 result.type=TSNodeObjectTypeUInt;
                 result.value.uint64=--obj.value.uint64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(uint64_t*)result.reference = result.value.uint64; // Update the original variable
+                break;
+            case TSNodeObjectTypePointer:
+                result.type=TSNodeObjectTypePointer;
+                result.value.pointer=(void*)((uint8_t*)obj.value.pointer-(obj.array_element_size));
+                result.reference=obj.reference; // Keep the reference to update the original pointer
+                *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
@@ -105,11 +125,21 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
         switch (obj.type) {
             case TSNodeObjectTypeInt:
                 result.type=TSNodeObjectTypeInt;
-                result.value.int64=obj.value.int64++;
+                result.value.int64=++obj.value.int64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(int64_t*)result.reference = result.value.int64; // Update the original variable
                 break;
             case TSNodeObjectTypeUInt:
                 result.type=TSNodeObjectTypeUInt;
-                result.value.uint64=obj.value.uint64++;
+                result.value.uint64=++obj.value.uint64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(uint64_t*)result.reference = result.value.uint64; // Update the original variable
+                break;
+            case TSNodeObjectTypePointer:
+                result.type=TSNodeObjectTypePointer;
+                result.value.pointer=(void*)((uint8_t*)obj.value.pointer+(obj.array_element_size));
+                result.reference=obj.reference; // Keep the reference to update the original pointer
+                *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
@@ -120,11 +150,21 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
         switch (obj.type) {
             case TSNodeObjectTypeInt:
                 result.type=TSNodeObjectTypeInt;
-                result.value.int64=obj.value.int64--;
+                result.value.int64=--obj.value.int64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(int64_t*)result.reference = result.value.int64; // Update the original variable
                 break;
             case TSNodeObjectTypeUInt:
                 result.type=TSNodeObjectTypeUInt;
-                result.value.uint64=obj.value.uint64--;
+                result.value.uint64=--obj.value.uint64;
+                result.reference=obj.reference; // Keep the reference to update the original variable
+                *(uint64_t*)result.reference = result.value.uint64; // Update the original variable
+                break;
+            case TSNodeObjectTypePointer:
+                result.type=TSNodeObjectTypePointer;
+                result.value.pointer=(void*)((uint8_t*)obj.value.pointer-(obj.array_element_size));
+                result.reference=obj.reference; // Keep the reference to update the original pointer
+                *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);

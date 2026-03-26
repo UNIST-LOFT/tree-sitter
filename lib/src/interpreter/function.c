@@ -63,15 +63,38 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
         switch (args[i].type) {
             case TSNodeObjectTypeInt:
             case TSNodeObjectTypeChar:
-                arg_types[i] = &ffi_type_sint64;
+                if (args[i].size == 1)
+                    arg_types[i] = &ffi_type_sint8;
+                else if (args[i].size == 2)
+                    arg_types[i] = &ffi_type_sint16;
+                else if (args[i].size == 4)
+                    arg_types[i] = &ffi_type_sint32;
+                else if (args[i].size == 8)
+                    arg_types[i] = &ffi_type_sint64;
+                else
+                    TS_PRINTF_ERROR("Unsupported int size: %zu\n", args[i].size);
                 arg_values[i] = &args[i].value.int64;
                 break;
             case TSNodeObjectTypeUInt:
-                arg_types[i] = &ffi_type_uint64;
+                if (args[i].size == 1)
+                    arg_types[i] = &ffi_type_uint8;
+                else if (args[i].size == 2)
+                    arg_types[i] = &ffi_type_uint16;
+                else if (args[i].size == 4)
+                    arg_types[i] = &ffi_type_uint32;
+                else if (args[i].size == 8)
+                    arg_types[i] = &ffi_type_uint64;
+                else
+                    TS_PRINTF_ERROR("Unsupported uint size: %zu\n", args[i].size);
                 arg_values[i] = &args[i].value.uint64;
                 break;
             case TSNodeObjectTypeDouble:
-                arg_types[i] = &ffi_type_double;
+                if (args[i].size == 4)
+                    arg_types[i] = &ffi_type_float;
+                else if (args[i].size == 8)
+                    arg_types[i] = &ffi_type_double;
+                else
+                    TS_PRINTF_ERROR("Unsupported double size: %zu\n", args[i].size);
                 arg_values[i] = &args[i].value.double64;
                 break;
             case TSNodeObjectTypePointer:

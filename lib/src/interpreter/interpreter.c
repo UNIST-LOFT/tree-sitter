@@ -43,8 +43,8 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
 
     if (strcmp(ts_node_type(node),"char_literal")==0) {
         obj.size=sizeof(char);
-        obj.type=TSNodeObjectTypeChar;
-        obj.value.int64=ts_node_find_value(node)[1];
+        obj.type=TSNodeObjectTypeInt;
+        obj.value.int64=ts_node_find_value(node)[0];
     }
     else if (in_str(obj.name,'.')) {
         // Float/double
@@ -107,6 +107,34 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
     return obj;
 }
 
+TSNodeObject ts_interpreter_casting(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+    TSNodeObject obj = ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars); // Casted value
+    char* cast_type = ts_node_find_value(node); // Casted type
+    if (strcmp(cast_type, "int8_t") == 0)
+        obj.size = 1;
+    else if (strcmp(cast_type, "int16_t") == 0)
+        obj.size = 2;
+    else if (strcmp(cast_type, "int32_t") == 0)
+        obj.size = 4;
+    else if (strcmp(cast_type, "int64_t") == 0)
+        obj.size = 8;
+    else if (strcmp(cast_type, "uint8_t") == 0)
+        obj.size = 1;
+    else if (strcmp(cast_type, "uint16_t") == 0)
+        obj.size = 2;
+    else if (strcmp(cast_type, "uint32_t") == 0)
+        obj.size = 4;
+    else if (strcmp(cast_type, "uint64_t") == 0)
+        obj.size = 8;
+    else if (strcmp(cast_type, "float") == 0)
+        obj.size = 4;
+    else if (strcmp(cast_type, "double") == 0)
+        obj.size = 8;
+    else {
+        TS_PRINTF_ERROR("Unsupported cast type: %s\n", cast_type);
+    }
+    return obj;
+}
 
 TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     // Base is pointer variable
@@ -137,7 +165,8 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
 }
 
 TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars) {
-    if (strcmp(ts_node_type(node),"identifier")==0 || strcmp(ts_node_type(node),"field_expression")==0) {
+    if (strcmp(ts_node_type(node),"identifier")==0 || strcmp(ts_node_type(node),"field_expression")==0 ||
+        strcmp(ts_node_type(node),"statement_identifier")==0) {
         return ts_interpreter_variable(node,var_count,vars);
     }
     else if (strcmp(ts_node_type(node),"number_literal")==0 || strcmp(ts_node_type(node),"char_literal")==0) {
@@ -194,6 +223,9 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.value.pointer=NULL;
         return obj;
     }
+    else if (strcmp(ts_node_type(node), "cast_expression") == 0) {
+        return ts_interpreter_casting(node, var_count, vars);
+    }
     else if (strcmp(ts_node_type(node), "conditional_expression") == 0) {
         TSNodeObject obj;
         TSNodeObject cond_result = ts_interpreter_simulate(ts_node_named_child(node, 0),var_count, vars);
@@ -223,6 +255,70 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
             strcmp(ts_node_type(node),"subscript_argument_list")==0 ||
             strcmp(ts_node_type(node),"ERROR")==0) {
         return ts_interpreter_simulate(ts_node_named_child(node,0),var_count,vars);
+    }
+    /* control flow statements do not return interpreter; just jump */
+    else if (strcmp(ts_node_type(node), "continue_statement")==0) {
+        TSNodeObject obj;
+        int8_t found = 0;
+        for (size_t i=0;i<var_count;i++) {
+            if (strcmp(vars[i].name, "continue")==0) {
+                obj = vars[i];
+                found = 1;
+                break;
+            }
+        }
+        if (!found || obj.type != TSNodeObjectTypeJmpBuf) {
+            TS_PRINTF_ERROR("Continue statement found but no corresponding jmp_buf in vars\n");
+        }
+        longjmp(*(obj.value.jmpbuf), 1);
+    }
+    else if (strcmp(ts_node_type(node), "break_statement")==0) {
+        TSNodeObject obj;
+        int8_t found = 0;
+        for (size_t i=0;i<var_count;i++) {
+            if (strcmp(vars[i].name, "break")==0) {
+                obj = vars[i];
+                found = 1;
+                break;
+            }
+        }
+        if (!found || obj.type != TSNodeObjectTypeJmpBuf) {
+            TS_PRINTF_ERROR("Break statement found but no corresponding jmp_buf in vars\n");
+        }
+        longjmp(*(obj.value.jmpbuf), 1);
+    }
+    else if (strcmp(ts_node_type(node), "goto_statement")==0) {
+        TSNodeObject obj;
+        char* label_name = malloc(7 + strlen(ts_node_find_value(ts_node_named_child(node, 0)))); // "goto " + label name
+        sprintf(label_name, "goto %s", ts_node_find_value(ts_node_named_child(node, 0)));
+        int8_t found = 0;
+        for (size_t i=0;i<var_count;i++) {
+            if (strcmp(vars[i].name, label_name)==0) {
+                obj = vars[i];
+                found = 1;
+                break;
+            }
+        }
+        free(label_name);
+        if (!found || obj.type != TSNodeObjectTypeJmpBuf) {
+            TS_PRINTF_ERROR("Goto statement found but no corresponding jmp_buf in vars\n");
+        }
+        longjmp(*(obj.value.jmpbuf), 1);
+    }
+    else if (strcmp(ts_node_type(node), "return_statement")==0) {
+        TSNodeObject obj;
+        int8_t found = 0;
+        for (size_t i=0;i<var_count;i++) {
+            if (strcmp(vars[i].name, "return")==0) {
+                obj = vars[i];
+                found = 1;
+                break;
+            }
+        }
+        if (!found || obj.type != TSNodeObjectTypeJmpBuf) {
+            TS_PRINTF_ERROR("Return statement found but no corresponding jmp_buf in vars\n");
+        }
+        longjmp(*(obj.value.jmpbuf), obj.array_element_size); // array_element_size is patch ID
     }
     else {
         TS_PRINTF_ERROR("Unsupported node type in interpreter: %s\n", ts_node_type(node));

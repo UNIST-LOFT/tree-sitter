@@ -414,7 +414,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
     else if (strcmp(op,"/")==0) {
         HANDLE_ARITH_OP(/, obj1, obj2, result);
     }
-    else if (strcmp(op,"%%")==0) {
+    else if (strcmp(op,"%")==0) {
         HANDLE_ARITH_NO_DOUBLE(%, obj1, obj2, result);
     }
 

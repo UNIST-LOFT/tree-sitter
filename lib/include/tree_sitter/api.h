@@ -13,6 +13,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <setjmp.h>
 
 #define TREE_SITTER_MAJOR_VERSION 21
 
@@ -1304,14 +1305,15 @@ typedef enum TSNodeObjectType {
 
   // String Literal
   TSNodeObjectTypeString,
-  // Char Literal
-  TSNodeObjectTypeChar,
 
   // Functions
   TSNodeObjectTypeFunctionVoid,
   TSNodeObjectTypeFunctionInt,
   TSNodeObjectTypeFunctionUInt,
-  TSNodeObjectTypeFunctionPointer
+  TSNodeObjectTypeFunctionPointer,
+
+  // jmp_buf
+  TSNodeObjectTypeJmpBuf
 } TSNodeObjectType;
 
 /**
@@ -1340,6 +1342,12 @@ typedef enum TSNodeObjectType {
  * If this object represents function, the `name` is the function name, `type` is the return type, `size` is the number of arguments,
  * and `value` is the function pointer.
  * It supports void, int, uint, and pointer return types.
+ *
+ * If this object represents jmp_buf for continue, break, goto and return stmt in the code, the `name` is "continue"/"break"/"return"/"goto <label>".
+ * The `type` is `TSNodeObjectTypeJmpBuf`, and the `value.jmpbuf` is the pointer to the jmp_buf.
+ * This interpreter will run `longjmp` to jump to the `setjmp`ed point which has corresponding stmt.
+ * Thus, `setjmp` should be instrumented in the code such as `if (setjmp(jmpbuf)) continue;` for continue statement.
+ * If this statement is return statement, `array_element_size` is the patch ID to execute return value.
  */
 typedef struct TSNodeObject {
   char* name;
@@ -1355,6 +1363,7 @@ typedef struct TSNodeObject {
     int64_t (*int_func)();
     uint64_t (*uint_func)();
     void* (*pointer_func)();
+    jmp_buf* jmpbuf; // Used for continue, break, goto and return stmt in the code
   } value;
   const void* reference;
   uint32_t array_element_size;

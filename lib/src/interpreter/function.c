@@ -62,7 +62,6 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     for (size_t i = 0; i < arg_count; i++) {
         switch (args[i].type) {
             case TSNodeObjectTypeInt:
-            case TSNodeObjectTypeChar:
                 if (args[i].size == 1)
                     arg_types[i] = &ffi_type_sint8;
                 else if (args[i].size == 2)

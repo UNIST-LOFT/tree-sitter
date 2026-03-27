@@ -2194,8 +2194,8 @@ char* ts_node_find_value_2(TSNode node) {
 void ts_add_value(TSNode node,const char* code) {
   TSTree* tree = node.tree;
   if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
-      strcmp(ts_node_type(node),"field_expression")==0 ||
-      strcmp(ts_node_type(node),"char_literal")==0 || strcmp(ts_node_type(node),"integer")==0 ||
+      strcmp(ts_node_type(node),"field_expression")==0 || strcmp(ts_node_type(node), "statement_identifier")==0 ||
+      strcmp(ts_node_type(node),"integer")==0 ||
       strcmp(ts_node_type(node),"float")==0) {
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
@@ -2204,6 +2204,37 @@ void ts_add_value(TSNode node,const char* code) {
     if (!value_exist(node)){
       tree->node_value_keys[tree->node_value_count]=node;
       tree->node_value_values[tree->node_value_count]=value;
+      tree->node_value_count++;
+    }
+  }
+  else if (strcmp(ts_node_type(node), "char_literal") == 0) {
+    TSNode child = ts_node_named_child(node, 0); // "character" node
+    uint32_t start = ts_node_start_byte(child);
+    uint32_t end = ts_node_end_byte(child);
+    char* value = trim(ts_substr(code,start,end));
+    char char_value = value[0];
+    if (value[0] == '\\') { // Handle escape sequences
+      switch (value[1]) {
+        case 'n': char_value = '\n'; break;
+        case 't': char_value = '\t'; break;
+        case 'r': char_value = '\r'; break;
+        case '\\': char_value = '\\'; break;
+        case '\'': char_value = '\''; break;
+        case '\"': char_value = '\"'; break;
+        case '0': char_value = '\0'; break;
+        case 'a': char_value = '\a'; break;
+        case 'b': char_value = '\b'; break;
+        case 'f': char_value = '\f'; break;
+        case 'v': char_value = '\v'; break;
+      }
+    }
+
+    if (!value_exist(node)){
+      char* char_str = ts_malloc(2);
+      char_str[0] = char_value;
+      char_str[1] = '\0';
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=char_str;
       tree->node_value_count++;
     }
   }
@@ -2217,6 +2248,19 @@ void ts_add_value(TSNode node,const char* code) {
       tree->node_value_values[tree->node_value_count]=value;
       tree->node_value_count++;
     }
+  }
+  else if (strcmp(ts_node_type(node), "cast_expression") == 0) {
+    TSNode child = ts_node_named_child(node, 0); // "type" node
+    uint32_t start = ts_node_start_byte(child);
+    uint32_t end = ts_node_end_byte(child);
+    char* value = trim(ts_substr(code,start,end)); // casted type
+
+    if (!value_exist(node)){
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=value;
+      tree->node_value_count++;
+    }
+    ts_add_value(ts_node_named_child(node, 1), code);
   }
   else if (strcmp(ts_node_type(node),"binary_expression")==0 || 
            strcmp(ts_node_type(node),"boolean_operator")==0 ||

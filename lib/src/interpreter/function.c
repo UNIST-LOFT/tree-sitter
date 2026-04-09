@@ -148,6 +148,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
             void* ret;
             ffi_call(&cif, FFI_FN(found.value.pointer_func), &ret, arg_values);
             obj.value.pointer = ret;
+            obj.array_element_size = found.array_element_size;
             break;
         }
         case TSNodeObjectTypeFunctionVoid: {

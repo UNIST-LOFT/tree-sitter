@@ -2332,6 +2332,7 @@ void ts_add_value(TSNode node,const char* code) {
   }
   else if (strcmp(ts_node_type(node),"unary_expression")==0 ||
            strcmp(ts_node_type(node),"unary_operator")==0 ||
+           strcmp(ts_node_type(node),"pointer_expression")==0 ||
            strcmp(ts_node_type(node),"update_expression")==0) { // update_expression: ++/-- before/after operand
     assert(ts_node_named_child_count(node)==1);
     // Find this operator is prefix or postfix

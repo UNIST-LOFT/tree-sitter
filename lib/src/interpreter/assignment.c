@@ -193,19 +193,9 @@ TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject
     TSNode left = ts_node_named_child(node, 0);
     TSNode right = ts_node_named_child(node, 1);
 
-    // find LHS from vars
-    char* left_value = ts_node_find_value(left);
-    TSNodeObject left_obj;
-    int32_t found = 0;
-    for (size_t i=0;i<var_count;i++) {
-        if (strcmp(left_value,vars[i].name) == 0) {
-            left_obj = vars[i];
-            found = 1;
-        }
-    }
-    if (!found) {
-        TS_PRINTF_ERROR("Variable %s not found in variable list\n", left_value);
-    }
+    // Handle LHS
+    // It may have simple variable or subscript
+    TSNodeObject left_obj = ts_interpreter_simulate(left, var_count, vars);
 
     // Assign
     char* op = ts_node_find_value(node);

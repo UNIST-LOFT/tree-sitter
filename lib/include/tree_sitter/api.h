@@ -1296,6 +1296,10 @@ void ts_set_allocator(
  * Type of the TSNodeObject.
  * 
  * TSNodeObjectTypePointer represents `void*`.
+ * 
+ * TSNodeObjectTypeUnknown represents the unknown type, which is used when the type of the object cannot be determined.
+ * In this case, most of the values in `TSNodeObject` are not assigned except `name`, `type`, `size` and `reference`.
+ * Thus, it requires to cast the reference into the actual type to access the value.
  */
 typedef enum TSNodeObjectType {
   TSNodeObjectTypeInt,
@@ -1313,7 +1317,10 @@ typedef enum TSNodeObjectType {
   TSNodeObjectTypeFunctionPointer,
 
   // jmp_buf
-  TSNodeObjectTypeJmpBuf
+  TSNodeObjectTypeJmpBuf,
+
+  // Unknown
+  TSNodeObjectTypeUnknown
 } TSNodeObjectType;
 
 /**

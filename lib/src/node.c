@@ -1,7 +1,9 @@
 #include <stdbool.h>
+#include <stdio.h>
 #include "./subtree.h"
 #include "./tree.h"
 #include "./language.h"
+#include "tree_sitter/api.h"
 
 typedef struct {
   Subtree parent;

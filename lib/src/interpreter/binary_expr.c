@@ -110,6 +110,24 @@
                     TS_PRINTF_ERROR("Unsupported RHS type in binary op to double: %d\n", (rhs).type); \
             } \
             break; \
+        case TSNodeObjectTypePointer: /* Temporary implementation for subscript. TODO: Add type info for pointee or array */ \
+            switch ((rhs).type) { \
+                case TSNodeObjectTypeInt: \
+                    result.type = TSNodeObjectTypeInt; \
+                    result.size = (lhs).size; \
+                    result.value.int64 = (lhs).value.int64 op (rhs).value.int64; \
+                    result.reference = (void*)&result.value.int64; \
+                    break; \
+                case TSNodeObjectTypeUInt: \
+                    result.type = TSNodeObjectTypeUInt; \
+                    result.size = (lhs).size; \
+                    result.value.uint64 = (lhs).value.int64 op (rhs).value.uint64; \
+                    result.reference = (void*)&(result.value.uint64); \
+                    break; \
+                default: \
+                    TS_PRINTF_ERROR("Unsupported RHS type in binary op with pointer LHS: %d\n", (rhs).type); \
+            } \
+            break; \
         default: \
             TS_PRINTF_ERROR("Unsupported type in binary op: %d\n", (lhs).type); \
     }
@@ -126,12 +144,15 @@
                 case TSNodeObjectTypeInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((int64_t)(rhs).value.int64) * (rhs).size; \
+                    result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((int64_t)(rhs).value.int64) * (lhs).array_element_size)); \
+                    result.reference = (void*)&(result.value.pointer); \
+                    result.array_element_size = (lhs).array_element_size; \
                     break; \
                 case TSNodeObjectTypeUInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
+                    result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((uint64_t)(rhs).value.uint64) * (lhs).array_element_size)); \
+                    result.array_element_size = (lhs).array_element_size; \
                     break; \
                 case TSNodeObjectTypePointer: \
                     result.type = TSNodeObjectTypeInt; \
@@ -158,12 +179,16 @@
                 case TSNodeObjectTypeInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((int64_t)(rhs).value.int64) * (rhs).size; \
+                    result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((int64_t)(rhs).value.int64) * (lhs).array_element_size)); \
+                    result.reference = (void*)&(result.value.pointer); \
+                    result.array_element_size = (lhs).array_element_size; \
                     break; \
                 case TSNodeObjectTypeUInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
-                    result.value.pointer = (uint8_t*)(lhs).value.pointer op ((uint64_t)(rhs).value.uint64) * (rhs).size; \
+                    result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((uint64_t)(rhs).value.uint64) * (lhs).array_element_size)); \
+                    result.reference = (void*)&(result.value.pointer); \
+                    result.array_element_size = (lhs).array_element_size; \
                     break; \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %d\n", (rhs).type); \

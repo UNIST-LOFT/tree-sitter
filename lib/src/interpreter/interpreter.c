@@ -130,6 +130,75 @@ TSNodeObject ts_interpreter_casting(TSNode node, uint64_t var_count, TSNodeObjec
         obj.size = 4;
     else if (strcmp(cast_type, "double") == 0)
         obj.size = 8;
+    // Pointer casts
+    else if (strcmp(cast_type, "int8_t*") == 0 || strcmp(cast_type, "uint8_t*") == 0) {
+        if (obj.type == TSNodeObjectTypePointer) {
+            // ptr to ptr
+            obj.array_element_size = 1;
+            obj.size = sizeof(void*);
+        }
+        else {
+            // other to ptr
+            obj.type = TSNodeObjectTypePointer;
+            obj.array_element_size = 1;
+            obj.size = sizeof(void*);
+            if (strcmp(cast_type, "int8_t*") == 0)
+                obj.value.pointer = *((int8_t**)obj.reference);
+            else
+                obj.value.pointer = *((uint8_t**)obj.reference);
+        }
+    }
+    else if (strcmp(cast_type, "int16_t*") == 0 || strcmp(cast_type, "uint16_t*") == 0) {
+        if (obj.type == TSNodeObjectTypePointer) {
+            obj.array_element_size = 2;
+            obj.size = sizeof(void*);
+        }
+        else {
+            obj.type = TSNodeObjectTypePointer;
+            obj.array_element_size = 2;
+            obj.size = sizeof(void*);
+            if (strcmp(cast_type, "int16_t*") == 0)
+                obj.value.pointer = *((int16_t**)obj.reference);
+            else
+                obj.value.pointer = *((uint16_t**)obj.reference);
+        }
+    }
+    else if (strcmp(cast_type, "int32_t*") == 0 || strcmp(cast_type, "uint32_t*") == 0 ||
+             strcmp(cast_type, "float*") == 0) {
+        if (obj.type == TSNodeObjectTypePointer) {
+            obj.array_element_size = 4;
+            obj.size = sizeof(void*);
+        }
+        else {
+            obj.type = TSNodeObjectTypePointer;
+            obj.array_element_size = 4;
+            obj.size = sizeof(void*);
+            if (strcmp(cast_type, "int32_t*") == 0)
+                obj.value.pointer = *((int32_t**)obj.reference);
+            else if (strcmp(cast_type, "uint32_t*") == 0)
+                obj.value.pointer = *((uint32_t**)obj.reference);
+            else
+                obj.value.pointer = *((float**)obj.reference);
+        }
+    }
+    else if (strcmp(cast_type, "int64_t*") == 0 || strcmp(cast_type, "uint64_t*") == 0 ||
+             strcmp(cast_type, "double*") == 0) {
+        if (obj.type == TSNodeObjectTypePointer) {
+            obj.array_element_size = 8;
+            obj.size = sizeof(void*);
+        }
+        else {
+            obj.type = TSNodeObjectTypePointer;
+            obj.array_element_size = 8;
+            obj.size = sizeof(void*);
+            if (strcmp(cast_type, "int64_t*") == 0)
+                obj.value.pointer = *((int64_t**)obj.reference);
+            else if (strcmp(cast_type, "uint64_t*") == 0)
+                obj.value.pointer = *((uint64_t**)obj.reference);
+            else
+                obj.value.pointer = *((double**)obj.reference);
+        }
+    }
     else {
         TS_PRINTF_ERROR("Unsupported cast type: %s\n", cast_type);
     }
@@ -159,7 +228,6 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
     }
     obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
     obj.value.int64 = *((int32_t*)obj.reference); // Store pointer value as int64
-    printf("Subscript result reference: %p, value: %" PRId64 "\n", obj.reference, obj.value.int64);
     obj.array_element_size = 0; // Not an array
     return obj;
 }
@@ -173,6 +241,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_literal(node);
     }
     else if (strcmp(ts_node_type(node),"unary_expression")==0 ||
+             strcmp(ts_node_type(node),"pointer_expression")==0 ||
              strcmp(ts_node_type(node),"update_expression")==0) {
         return ts_interpreter_unary(node,var_count,vars);
     }

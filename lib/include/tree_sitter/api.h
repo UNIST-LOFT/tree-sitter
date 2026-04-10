@@ -1374,6 +1374,7 @@ typedef struct TSNodeObject {
   } value;
   const void* reference;
   uint32_t array_element_size;
+  TSNodeObjectType array_element_type; // Type of the array or element then type == TSNodeObjectTypePointer
 } TSNodeObject;
 
 /**

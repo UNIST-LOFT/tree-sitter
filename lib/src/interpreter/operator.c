@@ -17,6 +17,22 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
         result.value.pointer = (void*)obj.reference; // reference is already &ed
         result.reference = &obj.reference; // ref of reference
         result.array_element_size = obj.array_element_size; // Keep the array element size for pointer arithmetic
+        switch(obj.array_element_type) {
+            case TSNodeObjectTypeInt:
+                result.array_element_type = TSNodeObjectTypeInt;
+                break;
+            case TSNodeObjectTypeUInt:
+                result.array_element_type = TSNodeObjectTypeUInt;
+                break;
+            case TSNodeObjectTypeDouble:
+                result.array_element_type = TSNodeObjectTypeDouble;
+                break;
+            case TSNodeObjectTypePointer:
+                result.array_element_type = TSNodeObjectTypePointer;
+                break;
+            default:
+                result.array_element_type = TSNodeObjectTypeUnknown;
+        }
     }
     else if (strcmp(op,"*")==0) {
         TS_PRINTF_ERROR("Dereference operation not supported");
@@ -96,6 +112,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.reference=obj.reference; // Keep the reference to update the original pointer
                 *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 result.array_element_size = obj.array_element_size;
+                result.array_element_type = obj.array_element_type;
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
@@ -122,6 +139,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.reference=obj.reference; // Keep the reference to update the original pointer
                 *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 result.array_element_size = obj.array_element_size;
+                result.array_element_type = obj.array_element_type;
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
@@ -148,6 +166,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.reference=obj.reference; // Keep the reference to update the original pointer
                 *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 result.array_element_size = obj.array_element_size;
+                result.array_element_type = obj.array_element_type;
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);
@@ -174,6 +193,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
                 result.reference=obj.reference; // Keep the reference to update the original pointer
                 *(void**)result.reference = result.value.pointer; // Update the original pointer value
                 result.array_element_size = obj.array_element_size;
+                result.array_element_type = obj.array_element_type;
                 break;
             default:
                 TS_PRINTF_ERROR("Unknown type: %d\n", obj.type);

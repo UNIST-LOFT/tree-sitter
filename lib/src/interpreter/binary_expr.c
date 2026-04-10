@@ -147,12 +147,14 @@
                     result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((int64_t)(rhs).value.int64) * (lhs).array_element_size)); \
                     result.reference = (void*)&(result.value.pointer); \
                     result.array_element_size = (lhs).array_element_size; \
+                    result.array_element_type = (lhs).array_element_type; \
                     break; \
                 case TSNodeObjectTypeUInt: \
                     result.type = TSNodeObjectTypePointer; \
                     result.size = (lhs).size; \
                     result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((uint64_t)(rhs).value.uint64) * (lhs).array_element_size)); \
                     result.array_element_size = (lhs).array_element_size; \
+                    result.array_element_type = (lhs).array_element_type; \
                     break; \
                 case TSNodeObjectTypePointer: \
                     result.type = TSNodeObjectTypeInt; \
@@ -182,6 +184,7 @@
                     result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((int64_t)(rhs).value.int64) * (lhs).array_element_size)); \
                     result.reference = (void*)&(result.value.pointer); \
                     result.array_element_size = (lhs).array_element_size; \
+                    result.array_element_type = (lhs).array_element_type; \
                     break; \
                 case TSNodeObjectTypeUInt: \
                     result.type = TSNodeObjectTypePointer; \
@@ -189,6 +192,7 @@
                     result.value.pointer = (void*)((uint8_t*)((lhs).value.pointer) op (((uint64_t)(rhs).value.uint64) * (lhs).array_element_size)); \
                     result.reference = (void*)&(result.value.pointer); \
                     result.array_element_size = (lhs).array_element_size; \
+                    result.array_element_type = (lhs).array_element_type; \
                     break; \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %d\n", (rhs).type); \
@@ -488,6 +492,9 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.int64 && obj2.value.uint64;
                         break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 && obj2.value.pointer;
+                        break;
                     default:
                         TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj2.type);
                 }
@@ -499,6 +506,24 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64 && obj2.value.uint64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 && obj2.value.pointer;
+                        break;
+                    default:
+                        TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj2.type);
+                }
+                break;
+            case TSNodeObjectTypePointer:
+                switch (obj2.type) {
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=obj1.value.pointer && obj2.value.int64;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=obj1.value.pointer && obj2.value.uint64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.pointer && obj2.value.pointer;
                         break;
                     default:
                         TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj2.type);
@@ -520,6 +545,9 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.int64 || obj2.value.uint64;
                         break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.int64 || obj2.value.pointer;
+                        break;
                     default:
                         TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj2.type);
                 }
@@ -531,6 +559,24 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
                         break;
                     case TSNodeObjectTypeUInt:
                         result.value.int64=obj1.value.uint64 || obj2.value.uint64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.uint64 || obj2.value.pointer;
+                        break;
+                    default:
+                        TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj2.type);
+                }
+                break;
+            case TSNodeObjectTypePointer:
+                switch (obj2.type) {
+                    case TSNodeObjectTypeInt:
+                        result.value.int64=obj1.value.pointer || obj2.value.int64;
+                        break;
+                    case TSNodeObjectTypeUInt:
+                        result.value.int64=obj1.value.pointer || obj2.value.uint64;
+                        break;
+                    case TSNodeObjectTypePointer:
+                        result.value.int64=obj1.value.pointer || obj2.value.pointer;
                         break;
                     default:
                         TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj2.type);

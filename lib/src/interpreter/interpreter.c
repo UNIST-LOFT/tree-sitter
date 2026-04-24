@@ -234,21 +234,88 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
     obj.name = NULL; // No name for subscript result
     obj.node = node;
     obj.size = base_obj.array_element_size;
-    // TODO: Handle other types: add pointee type information in TSNodeObject
-    obj.type = TSNodeObjectTypePointer;
-    int32_t index;
-    if (index_obj.type == TSNodeObjectTypeInt) {
-        index = (int32_t)(index_obj.value.int64);
+    uint32_t index;
+    // Compute index
+    if (index_obj.type == TSNodeObjectTypeInt)
+        index = (uint32_t)(index_obj.value.int64);
+    else if (index_obj.type == TSNodeObjectTypeUInt)
+        index = (uint32_t)(index_obj.value.uint64);
+    else
+        TS_PRINTF_ERROR("Array index must be int or uint type\n");
+
+    if (base_obj.array_element_type == TSNodeObjectTypeInt) {
+        obj.type = TSNodeObjectTypeInt;
+        switch (base_obj.array_element_size) {
+            case 1:                
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.int64 = *((int8_t*)obj.reference); // Store pointer value as int64
+                break;
+            case 2:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.int64 = *((int16_t*)obj.reference); // Store pointer value as int64
+                break;
+            case 4:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.int64 = *((int32_t*)obj.reference); // Store pointer value as int64
+                break;
+            case 8:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.int64 = *((int64_t*)obj.reference); // Store pointer value as int64
+                break;
+            default:
+                TS_PRINTF_ERROR("Unsupported int array element size: %d\n", base_obj.array_element_size);
+        }
+        obj.array_element_size = 0; // Not an array
     }
-    else if (index_obj.type == TSNodeObjectTypeUInt) {
-        index = (int32_t)(index_obj.value.uint64);
+    else if (base_obj.array_element_type == TSNodeObjectTypeUInt) {
+        obj.type = TSNodeObjectTypeUInt;
+        switch (base_obj.array_element_size) {
+            case 1:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.uint64 = *((uint8_t*)obj.reference); // Store pointer value as uint64
+                break;
+            case 2:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.uint64 = *((uint16_t*)obj.reference); // Store pointer value as uint64
+                break;
+            case 4:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.uint64 = *((uint32_t*)obj.reference); // Store pointer value as uint64
+                break;
+            case 8:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.uint64 = *((uint64_t*)obj.reference); // Store pointer value as uint64
+                break;
+            default:
+                TS_PRINTF_ERROR("Unsupported uint array element size: %d\n", base_obj.array_element_size);
+        }
+        obj.array_element_size = 0; // Not an array
+    }
+    else if (base_obj.array_element_type == TSNodeObjectTypeDouble) {
+        obj.type = TSNodeObjectTypeDouble;
+        switch (base_obj.array_element_size) {
+            case 4:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.double64 = *((float*)obj.reference); // Store pointer value as double64
+                break;
+            case 8:
+                obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+                obj.value.double64 = *((double*)obj.reference); // Store pointer value as double64
+                break;
+            default:
+                TS_PRINTF_ERROR("Unsupported double array element size: %d\n", base_obj.array_element_size);
+        }
+        obj.array_element_size = 0; // Not an array
+    }
+    else if (base_obj.array_element_type == TSNodeObjectTypePointer) {
+        obj.type = TSNodeObjectTypePointer;
+        obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
+        obj.value.pointer = *((void**)obj.reference); // Store pointer value
+        obj.array_element_size = 1; // Unknown size for pointer array element
     }
     else {
-        TS_PRINTF_ERROR("Array index must be int or uint type\n");
+        TS_PRINTF_ERROR("Unsupported array subscript type: %d\n", base_obj.array_element_type);
     }
-    obj.reference = (void*)((unsigned char*)base_obj.value.pointer + (index * base_obj.array_element_size)); // Compute offset
-    obj.value.int64 = *((int32_t*)obj.reference); // Store pointer value as int64
-    obj.array_element_size = 0; // Not an array
     return obj;
 }
 

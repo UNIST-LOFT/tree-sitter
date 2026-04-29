@@ -62,29 +62,69 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     for (size_t i = 0; i < arg_count; i++) {
         switch (args[i].type) {
             case TSNodeObjectTypeInt:
-                if (args[i].size == 1)
-                    arg_types[i] = &ffi_type_sint8;
-                else if (args[i].size == 2)
-                    arg_types[i] = &ffi_type_sint16;
-                else if (args[i].size == 4)
-                    arg_types[i] = &ffi_type_sint32;
-                else if (args[i].size == 8)
-                    arg_types[i] = &ffi_type_sint64;
-                else
-                    TS_PRINTF_ERROR("Unsupported int size: %zu\n", args[i].size);
+                if (args[i].array_element_size != 0) {
+                    switch (args[i].array_element_size) {
+                        case 1:
+                            arg_types[i] = &ffi_type_sint8;
+                            break;
+                        case 2:
+                            arg_types[i] = &ffi_type_sint16;
+                            break;
+                        case 4:
+                            arg_types[i] = &ffi_type_sint32;
+                            break;
+                        case 8:
+                            arg_types[i] = &ffi_type_sint64;
+                            break;
+                        default:
+                            TS_PRINTF_ERROR("Unsupported int array element size: %" PRIu32 "\n", args[i].array_element_size);
+                    }
+                }
+                else {
+                    if (args[i].size == 1)
+                        arg_types[i] = &ffi_type_sint8;
+                    else if (args[i].size == 2)
+                        arg_types[i] = &ffi_type_sint16;
+                    else if (args[i].size == 4)
+                        arg_types[i] = &ffi_type_sint32;
+                    else if (args[i].size == 8)
+                        arg_types[i] = &ffi_type_sint64;
+                    else
+                        TS_PRINTF_ERROR("Unsupported int size: %zu\n", args[i].size);
+                }
                 arg_values[i] = &args[i].value.int64;
                 break;
             case TSNodeObjectTypeUInt:
-                if (args[i].size == 1)
-                    arg_types[i] = &ffi_type_uint8;
-                else if (args[i].size == 2)
-                    arg_types[i] = &ffi_type_uint16;
-                else if (args[i].size == 4)
-                    arg_types[i] = &ffi_type_uint32;
-                else if (args[i].size == 8)
-                    arg_types[i] = &ffi_type_uint64;
-                else
-                    TS_PRINTF_ERROR("Unsupported uint size: %zu\n", args[i].size);
+                if (args[i].array_element_size != 0) {
+                    switch (args[i].array_element_size) {
+                        case 1:
+                            arg_types[i] = &ffi_type_uint8;
+                            break;
+                        case 2:
+                            arg_types[i] = &ffi_type_uint16;
+                            break;
+                        case 4:
+                            arg_types[i] = &ffi_type_uint32;
+                            break;
+                        case 8:
+                            arg_types[i] = &ffi_type_uint64;
+                            break;
+                        default:
+                            TS_PRINTF_ERROR("Unsupported uint array element size: %" PRIu32 "\n", args[i].array_element_size);
+                    }
+                }
+                else {
+                    if (args[i].size == 1)
+                        arg_types[i] = &ffi_type_uint8;
+                    else if (args[i].size == 2)
+                        arg_types[i] = &ffi_type_uint16;
+                    else if (args[i].size == 4)
+                        arg_types[i] = &ffi_type_uint32;
+                    else if (args[i].size == 8)
+                        arg_types[i] = &ffi_type_uint64;
+                    else
+                        TS_PRINTF_ERROR("Unsupported uint size: %zu\n", args[i].size);
+                }
                 arg_values[i] = &args[i].value.uint64;
                 break;
             case TSNodeObjectTypeDouble:

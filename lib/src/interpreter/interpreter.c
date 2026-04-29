@@ -40,6 +40,7 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
     TSNodeObject obj;
     obj.name=ts_node_find_value(node);
     obj.node=node;
+    obj.array_element_size = 0;
 
     if (strcmp(ts_node_type(node),"char_literal")==0) {
         obj.size=sizeof(char);

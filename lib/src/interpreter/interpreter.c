@@ -477,6 +477,44 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         }
         longjmp(*(obj.value.jmpbuf), obj.array_element_size); // array_element_size is patch ID
     }
+    else if (strcmp(ts_node_type(node), "if_statement") == 0) {
+        TSNodeObject cond_result = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars);
+        int is_then = 0;
+        if (cond_result.type == TSNodeObjectTypeInt && cond_result.value.int64) {
+            is_then = 1;
+        }
+        else if (cond_result.type == TSNodeObjectTypeUInt && cond_result.value.uint64) {
+            is_then = 1;
+        }
+        else if (cond_result.type == TSNodeObjectTypeDouble && cond_result.value.double64) {
+            is_then = 1;
+        }
+        else if (cond_result.type == TSNodeObjectTypePointer && cond_result.value.pointer) {
+            is_then = 1;
+        }
+        
+        if (is_then) {
+            // Then branch
+            return ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars);
+        }
+        else if (ts_node_named_child_count(node) > 2) {
+            // Else branch if exists
+            TSNode else_branch = ts_node_named_child(node, 2);
+            if (strcmp(ts_node_type(else_branch), "else_clause") == 0)
+                else_branch = ts_node_named_child(else_branch, 0); // Skip "else" node
+            return ts_interpreter_simulate(else_branch, var_count, vars);
+        }
+        else {
+            // No else branch, just return dummy value
+            TSNodeObject obj;
+            obj.name = NULL;
+            obj.node = node;
+            obj.size = 0;
+            obj.type = TSNodeObjectTypeInt;
+            obj.value.int64 = 0;
+            return obj;
+        }
+    }
     else {
         TS_PRINTF_ERROR("Unsupported node type in interpreter: %s\n", ts_node_type(node));
     }

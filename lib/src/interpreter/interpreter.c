@@ -475,7 +475,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         if (!found || obj.type != TSNodeObjectTypeJmpBuf) {
             TS_PRINTF_ERROR("Return statement found but no corresponding jmp_buf in vars\n");
         }
-        longjmp(*(obj.value.jmpbuf), obj.array_element_size); // array_element_size is patch ID
+        longjmp(*(obj.value.jmpbuf), (int)obj.array_element_size); // array_element_size is patch ID
     }
     else if (strcmp(ts_node_type(node), "if_statement") == 0) {
         TSNodeObject cond_result = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars);

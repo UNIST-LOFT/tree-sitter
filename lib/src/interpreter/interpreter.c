@@ -515,6 +515,15 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
             return obj;
         }
     }
+    else if (strcmp(ts_node_type(node), "comment") == 0) {
+        TSNodeObject obj;
+        obj.name = NULL;
+        obj.node = node;
+        obj.size = 0;
+        obj.type = TSNodeObjectTypeInt;
+        obj.value.int64 = 0;
+        return obj; // Ignore comments, return dummy value
+    }
     else {
         TS_PRINTF_ERROR("Unsupported node type in interpreter: %s\n", ts_node_type(node));
     }

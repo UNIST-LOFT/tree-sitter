@@ -15,6 +15,21 @@ TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObje
     TS_PRINTF_ERROR("Variable not found: %s\n", node_name);
 }
 
+TSNodeObject ts_interpreter_sizeof(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+    if (strcmp(ts_node_type(node), "identifier") != 0 && strcmp(ts_node_type(node), "field_expression") != 0 &&
+        strcmp(ts_node_type(node), "subscript_expression") != 0) {
+        TS_PRINTF_ERROR("sizeof operator expects an variable as its operand\n");
+    }
+    TSNodeObject obj = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars);
+    TSNodeObject size_obj;
+    size_obj.name = NULL; // No name for sizeof result
+    size_obj.node = node;
+    size_obj.size = sizeof(uint64_t); // Size of the result is always uint64_t
+    size_obj.type = TSNodeObjectTypeUInt;
+    size_obj.value.uint64 = obj.size; // Return the size of the object
+    return size_obj;
+}
+
 int in_str(char* str, char c) {
     for (size_t i=0;i<strlen(str);i++) {
         if (str[i]==c) {
@@ -382,6 +397,9 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     }
     else if (strcmp(ts_node_type(node), "cast_expression") == 0) {
         return ts_interpreter_casting(node, var_count, vars);
+    }
+    else if (strcmp(ts_node_type(node), "sizeof_expression") == 0) {
+        return ts_interpreter_sizeof(node, var_count, vars);
     }
     else if (strcmp(ts_node_type(node), "conditional_expression") == 0) {
         TSNodeObject obj;

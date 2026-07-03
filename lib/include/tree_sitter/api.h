@@ -1445,6 +1445,13 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
  */
 TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject* vars);
 
+/* New variable declarations */
+#define MAX_VARS 10
+/* Declarations only: shared across every translation unit. The single
+ * definition lives in src/interpreter/variable_decl.c. */
+extern TSNodeObject new_variables[MAX_VARS];
+extern uint32_t new_var_count;
+
 /*************************************/
 /*  Section - Utilities (FreddyYJ)   */
 /*************************************/

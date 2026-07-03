@@ -16,9 +16,8 @@ TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObje
 }
 
 TSNodeObject ts_interpreter_sizeof(TSNode node, uint64_t var_count, TSNodeObject* vars) {
-    if (strcmp(ts_node_type(node), "identifier") != 0 && strcmp(ts_node_type(node), "field_expression") != 0 &&
-        strcmp(ts_node_type(node), "subscript_expression") != 0) {
-        TS_PRINTF_ERROR("sizeof operator expects an variable as its operand\n");
+    if (strcmp(ts_node_type(ts_node_named_child(node, 0)), "type_descriptor") == 0) {
+        TS_PRINTF_ERROR("Currently sizeof cannot handle type descriptor (e.g., int)\n");
     }
     TSNodeObject obj = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars);
     TSNodeObject size_obj;

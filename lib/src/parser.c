@@ -2405,6 +2405,22 @@ void ts_add_value(TSNode node,const char* code) {
       tree->node_value_count++;
     }
   }
+  else if (strcmp(ts_node_type(node), "declaration") == 0) {
+    // Variable declaration in C
+    TSNode type_node = ts_node_named_child(node, 0); // Type node
+    uint32_t start = ts_node_start_byte(type_node);
+    uint32_t end = ts_node_end_byte(type_node);
+    char* value = trim(ts_substr(code,start,end)); // variable type
+    if (!value_exist(node)){
+      tree->node_value_keys[tree->node_value_count]=node;
+      tree->node_value_values[tree->node_value_count]=value;
+      tree->node_value_count++;
+    }
+
+    for (uint32_t i = 1, n = ts_node_named_child_count(node); i < n; i++) {
+      ts_add_value(ts_node_named_child(node,i),code);
+    }
+  }
   else{
     for (uint32_t i = 0, n = ts_node_named_child_count(node); i < n; i++) {
       ts_add_value(ts_node_named_child(node,i),code);

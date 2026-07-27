@@ -1452,6 +1452,15 @@ TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject
 extern TSNodeObject new_variables[MAX_VARS];
 extern uint32_t new_var_count;
 
+/**
+ * Create new TSNodeObject of the given variable declaration.
+
+ * It can handle primitive type and pointer type variable declaration.
+ * For initializer, it internally calls `ts_interpreter_simulate` with the initializer expression.
+ * Internally, it stores the variable in the `new_variables` array and updates the `new_var_count`.
+ */
+TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars);
+
 /*************************************/
 /*  Section - Utilities (FreddyYJ)   */
 /*************************************/

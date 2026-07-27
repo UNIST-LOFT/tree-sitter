@@ -62,7 +62,8 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     for (size_t i = 0; i < arg_count; i++) {
         switch (args[i].type) {
             case TSNodeObjectTypeInt:
-                if (args[i].array_element_size != 0) {
+                if (args[i].array_element_size == 1 || args[i].array_element_size == 2 ||
+                        args[i].array_element_size == 4 || args[i].array_element_size == 8) {
                     switch (args[i].array_element_size) {
                         case 1:
                             arg_types[i] = &ffi_type_sint8;
@@ -95,7 +96,8 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                 arg_values[i] = &args[i].value.int64;
                 break;
             case TSNodeObjectTypeUInt:
-                if (args[i].array_element_size != 0) {
+                if (args[i].array_element_size == 1 || args[i].array_element_size == 2 ||
+                        args[i].array_element_size == 4 || args[i].array_element_size == 8) {
                     switch (args[i].array_element_size) {
                         case 1:
                             arg_types[i] = &ffi_type_uint8;

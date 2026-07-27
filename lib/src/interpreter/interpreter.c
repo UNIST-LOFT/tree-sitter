@@ -6,6 +6,14 @@
 
 TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars) {
     char* node_name=ts_node_find_value(node);
+    // Check newly declared variables first
+    for (size_t i=0;i<new_var_count;i++) {
+        if (strcmp(node_name, new_variables[i].name)==0) {
+            return new_variables[i];
+        }
+    }
+
+    // It is not a newly declared variable, check the existing variables
     for (size_t i=0;i<var_count;i++) {
         if (strcmp(node_name, vars[i].name)==0) {
             return vars[i];
@@ -233,6 +241,23 @@ TSNodeObject ts_interpreter_casting(TSNode node, uint64_t var_count, TSNodeObjec
                 obj.array_element_type = TSNodeObjectTypeDouble;
             }
         }
+    }
+    else if (strlen(cast_type) > 0 && cast_type[strlen(cast_type) - 1] == '*') {
+        // Casting to non-primitive pointer type
+        obj.type = TSNodeObjectTypePointer;
+        obj.array_element_size = 1; // Dummy size, assume unused
+        obj.size = sizeof(void*);
+        obj.value.pointer = *((void**)obj.reference);
+        obj.array_element_type = TSNodeObjectTypeUnknown;
+    }
+    else if (strcmp(cast_type, "void") == 0) {
+        // Casting to void, do nothing
+    }
+    else if (strlen(cast_type) >= 4 && cast_type[0] == 'e' && cast_type[1] == 'n' &&
+             cast_type[2] == 'u' && cast_type[3] == 'm') {
+        // Casting to enum, treat as int
+        obj.type = TSNodeObjectTypeInt;
+        obj.size = sizeof(int);
     }
     else {
         TS_PRINTF_ERROR("Unsupported cast type: %s\n", cast_type);
@@ -531,6 +556,10 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
             obj.value.int64 = 0;
             return obj;
         }
+    }
+    /* Variable declaration */
+    else if (strcmp(ts_node_type(node), "declaration") == 0) {
+        return ts_interpreter_var_decl(node, var_count, vars);
     }
     else if (strcmp(ts_node_type(node), "comment") == 0) {
         TSNodeObject obj;

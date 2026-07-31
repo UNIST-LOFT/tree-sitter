@@ -50,7 +50,7 @@ static const TSCastTypeWidth CAST_TYPE_WIDTH[] = {
 };
 
 
-TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     // Check type is valid and decide the (type, width) of this declaration.
     const char* type_text = ts_node_find_value(node);
     TSNodeObjectType decl_type = TSNodeObjectTypeUnknown;
@@ -83,8 +83,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
 
         new_var.name = malloc(strlen(ident_name) + 1);
         strcpy(new_var.name, ident_name);
-        new_var.type = decl_type;
-        new_var.size = decl_size;
+        new_var.type = ts_interpreter_get_type_info(type_text, decl_size, decl_type);
         new_var.node = rhs;
         void* ref = malloc(decl_size);
         memset(ref, 0, decl_size); // No init: initialize to zero
@@ -113,9 +112,8 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
 
         new_var.name = malloc(strlen(ident_name) + 1);
         strcpy(new_var.name, ident_name);
-        new_var.type = decl_type;
-        new_var.size = decl_size;
-        new_var.array_element_size = decl_size;
+        new_var.type = ts_interpreter_get_type_info(type_text, decl_size, decl_type);
+        new_var.array_element_type.size = decl_size;
         // Element type of the pointer is the pointee type looked up in CAST_TYPE_WIDTH
         TSNodeObjectType elem_type = TSNodeObjectTypeUnknown;
         int elem_found = 0;
@@ -133,7 +131,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
             TS_PRINTF_ERROR("Unsupported pointer element type: %s\n",
                             type_text ? type_text : "(null)");
         }
-        new_var.array_element_type = elem_type;
+        new_var.array_element_type.category = elem_type;
         new_var.node = rhs;
         void* ref = malloc(decl_size);
         memset(ref, 0, decl_size); // No init: initialize to zero
@@ -164,8 +162,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
 
         new_var.name = malloc(strlen(ident_name) + 1);
         strcpy(new_var.name, ident_name);
-        new_var.type = decl_type;
-        new_var.size = decl_size;
+        new_var.type = ts_interpreter_get_type_info(type_text, decl_size, decl_type);
         if (strcmp(ts_node_type(name_node), "pointer_declarator") == 0) {
             TSNodeObjectType elem_type = TSNodeObjectTypeUnknown;
             int elem_found = 0;
@@ -183,22 +180,23 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
                 TS_PRINTF_ERROR("Unsupported pointer element type: %s\n",
                                 type_text ? type_text : "(null)");
             }
-            new_var.array_element_type = elem_type;
-            new_var.array_element_size = decl_size;
+            new_var.array_element_type.category = elem_type;
+            new_var.array_element_type.size = decl_size;
         }
         else {
-            new_var.array_element_size = 0; // Not a pointer
+            new_var.array_element_type.category = TSNodeObjectTypeUnknown;
+            new_var.array_element_type.size = 0; // Not a pointer
         }
         new_var.node = rhs;
         void* ref = malloc(decl_size);
-        TSNodeObject init = ts_interpreter_simulate(value_node, var_count, vars); // Initializer
-        if (init.type == TSNodeObjectTypeInt) {
+        TSNodeObject init = ts_interpreter_simulate(value_node, var_count, vars, type_info_table); // Initializer
+        if (init.type.category == TSNodeObjectTypeInt) {
             *(int64_t*)ref = init.value.int64;
-        } else if (init.type == TSNodeObjectTypeUInt) {
+        } else if (init.type.category == TSNodeObjectTypeUInt) {
             *(uint64_t*)ref = init.value.uint64;
-        } else if (init.type == TSNodeObjectTypeDouble) {
+        } else if (init.type.category == TSNodeObjectTypeDouble) {
             *(double*)ref = init.value.double64;
-        } else if (init.type == TSNodeObjectTypePointer) {
+        } else if (init.type.category == TSNodeObjectTypePointer) {
             *(void**)ref = (void*)init.reference;
         } else {
             TS_PRINTF_ERROR("Unsupported initializer type for variable declaration.\n");
@@ -212,7 +210,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
         } else if (decl_type == TSNodeObjectTypeDouble) {
             new_var.value.double64 = init.value.double64;
         } else if (decl_type == TSNodeObjectTypePointer) {
-            new_var.value.pointer = (void*)init.reference;
+            new_var.value.pointer = *(void**)init.reference;
         }
     }
 

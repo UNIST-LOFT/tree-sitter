@@ -70,6 +70,10 @@ install: all
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
 	install -m644 lib/include/tree_sitter/api.h '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
 
+	# api.h includes uthash/uthash.h for the hash tables of the runtime information
+	install -d '$(DESTDIR)$(INCLUDEDIR)'/uthash
+	install -m644 lib/include/uthash/*.h '$(DESTDIR)$(INCLUDEDIR)'/uthash/
+
 	install -d '$(DESTDIR)$(PCLIBDIR)'
 	install -m644 tree-sitter.pc '$(DESTDIR)$(PCLIBDIR)'/
 

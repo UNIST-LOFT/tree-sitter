@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include <ffi.h>
 
-TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars) {
+TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     if (strcmp(ts_node_type(node), "call_expression") != 0) {
         TS_PRINTF_ERROR("Node is not a call_expression: %s\n", ts_node_type(node));
     }
@@ -31,40 +31,37 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     uint32_t arg_count = ts_node_named_child_count(arg_list);
     for (size_t i = 0; i < arg_count; i++) {
         TSNode arg_node = ts_node_named_child(arg_list, i);
-        args[i] = ts_interpreter_simulate(arg_node, var_count, vars);
+        args[i] = ts_interpreter_simulate(arg_node, var_count, vars, type_info_table);
     }
 
-    switch (found.type) {
+    switch (found.type.category) {
         case TSNodeObjectTypeFunctionVoid:
-            obj.type = TSNodeObjectTypeInt; // TODO: handle void return, now return 0
-            obj.size = sizeof(int32_t);
+            // Void type will not be used
+            obj.type = ts_interpreter_get_type_info("void", 0, TSNodeObjectTypeInt);
             obj.value.int64 = 0;
             break;
         case TSNodeObjectTypeFunctionInt:
-            obj.type = TSNodeObjectTypeInt;
-            obj.size = sizeof(int32_t);
+            obj.type = ts_interpreter_get_type_info("int", sizeof(int32_t), TSNodeObjectTypeInt);
             break;
         case TSNodeObjectTypeFunctionUInt:
-            obj.type = TSNodeObjectTypeUInt;
-            obj.size = sizeof(uint32_t);
+            obj.type = ts_interpreter_get_type_info("unsigned int", sizeof(uint32_t), TSNodeObjectTypeUInt);
             break;
         case TSNodeObjectTypeFunctionPointer:
-            obj.type = TSNodeObjectTypePointer;
-            obj.size = sizeof(void*);
+            obj.type = ts_interpreter_get_type_info("void*", sizeof(void*), TSNodeObjectTypePointer);
             break;
         default:
-            TS_PRINTF_ERROR("Unknown function return type: %d\n", found.type);
+            TS_PRINTF_ERROR("Unknown function return type: %d\n", found.type.category);
     }
 
     // Prepare ffi
     ffi_type* arg_types[10];
     void* arg_values[10];
     for (size_t i = 0; i < arg_count; i++) {
-        switch (args[i].type) {
+        switch (args[i].type.category) {
             case TSNodeObjectTypeInt:
-                if (args[i].array_element_size == 1 || args[i].array_element_size == 2 ||
-                        args[i].array_element_size == 4 || args[i].array_element_size == 8) {
-                    switch (args[i].array_element_size) {
+                if (args[i].array_element_type.size == 1 || args[i].array_element_type.size == 2 ||
+                        args[i].array_element_type.size == 4 || args[i].array_element_type.size == 8) {
+                    switch (args[i].array_element_type.size) {
                         case 1:
                             arg_types[i] = &ffi_type_sint8;
                             break;
@@ -78,27 +75,27 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                             arg_types[i] = &ffi_type_sint64;
                             break;
                         default:
-                            TS_PRINTF_ERROR("Unsupported int array element size: %" PRIu32 "\n", args[i].array_element_size);
+                            TS_PRINTF_ERROR("Unsupported int array element size: %" PRIu32 "\n", args[i].array_element_type.size);
                     }
                 }
                 else {
-                    if (args[i].size == 1)
+                    if (args[i].type.size == 1)
                         arg_types[i] = &ffi_type_sint8;
-                    else if (args[i].size == 2)
+                    else if (args[i].type.size == 2)
                         arg_types[i] = &ffi_type_sint16;
-                    else if (args[i].size == 4)
+                    else if (args[i].type.size == 4)
                         arg_types[i] = &ffi_type_sint32;
-                    else if (args[i].size == 8)
+                    else if (args[i].type.size == 8)
                         arg_types[i] = &ffi_type_sint64;
                     else
-                        TS_PRINTF_ERROR("Unsupported int size: %zu\n", args[i].size);
+                        TS_PRINTF_ERROR("Unsupported int size: %" PRIu32 "\n", args[i].type.size);
                 }
                 arg_values[i] = &args[i].value.int64;
                 break;
             case TSNodeObjectTypeUInt:
-                if (args[i].array_element_size == 1 || args[i].array_element_size == 2 ||
-                        args[i].array_element_size == 4 || args[i].array_element_size == 8) {
-                    switch (args[i].array_element_size) {
+                if (args[i].array_element_type.size == 1 || args[i].array_element_type.size == 2 ||
+                        args[i].array_element_type.size == 4 || args[i].array_element_type.size == 8) {
+                    switch (args[i].array_element_type.size) {
                         case 1:
                             arg_types[i] = &ffi_type_uint8;
                             break;
@@ -112,30 +109,30 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
                             arg_types[i] = &ffi_type_uint64;
                             break;
                         default:
-                            TS_PRINTF_ERROR("Unsupported uint array element size: %" PRIu32 "\n", args[i].array_element_size);
+                            TS_PRINTF_ERROR("Unsupported uint array element size: %" PRIu32 "\n", args[i].array_element_type.size);
                     }
                 }
                 else {
-                    if (args[i].size == 1)
+                    if (args[i].type.size == 1)
                         arg_types[i] = &ffi_type_uint8;
-                    else if (args[i].size == 2)
+                    else if (args[i].type.size == 2)
                         arg_types[i] = &ffi_type_uint16;
-                    else if (args[i].size == 4)
+                    else if (args[i].type.size == 4)
                         arg_types[i] = &ffi_type_uint32;
-                    else if (args[i].size == 8)
+                    else if (args[i].type.size == 8)
                         arg_types[i] = &ffi_type_uint64;
                     else
-                        TS_PRINTF_ERROR("Unsupported uint size: %zu\n", args[i].size);
+                        TS_PRINTF_ERROR("Unsupported uint size: %" PRIu32 "\n", args[i].type.size);
                 }
                 arg_values[i] = &args[i].value.uint64;
                 break;
             case TSNodeObjectTypeDouble:
-                if (args[i].size == 4)
+                if (args[i].type.size == 4)
                     arg_types[i] = &ffi_type_float;
-                else if (args[i].size == 8)
+                else if (args[i].type.size == 8)
                     arg_types[i] = &ffi_type_double;
                 else
-                    TS_PRINTF_ERROR("Unsupported double size: %zu\n", args[i].size);
+                    TS_PRINTF_ERROR("Unsupported double size: %" PRIu32 "\n", args[i].type.size);
                 arg_values[i] = &args[i].value.double64;
                 break;
             case TSNodeObjectTypePointer:
@@ -153,7 +150,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
 
     ffi_cif cif;
     ffi_type* ret_type;
-    switch (obj.type) {
+    switch (obj.type.category) {
         case TSNodeObjectTypeInt:
             ret_type = &ffi_type_sint64;
             break;
@@ -173,25 +170,30 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     }
 
     // Call the function
-    switch (obj.type) {
+    switch (obj.type.category) {
         case TSNodeObjectTypeInt: {
             int64_t ret;
             ffi_call(&cif, FFI_FN(found.value.int_func), &ret, arg_values);
             obj.value.int64 = ret;
+            obj.reference = malloc(sizeof(int64_t));
+            *((int64_t*)obj.reference) = ret;
             break;
         }
         case TSNodeObjectTypeUInt: {
             uint64_t ret;
             ffi_call(&cif, FFI_FN(found.value.uint_func), &ret, arg_values);
             obj.value.uint64 = ret;
+            obj.reference = malloc(sizeof(uint64_t));
+            *((uint64_t*)obj.reference) = ret;
             break;
         }
         case TSNodeObjectTypePointer: {
             void* ret;
             ffi_call(&cif, FFI_FN(found.value.pointer_func), &ret, arg_values);
             obj.value.pointer = ret;
-            obj.array_element_size = found.array_element_size;
             obj.array_element_type = found.array_element_type;
+            obj.reference = malloc(sizeof(void*));
+            *((void**)obj.reference) = ret;
             break;
         }
         case TSNodeObjectTypeFunctionVoid: {
@@ -200,7 +202,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
             break;
         }
         default:
-            TS_PRINTF_ERROR("Unsupported function return type in call: %d\n", obj.type);
+            TS_PRINTF_ERROR("Unsupported function return type in call: %d\n", obj.type.category);
     }
 
     return obj;

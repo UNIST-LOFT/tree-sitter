@@ -14,6 +14,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 #include <setjmp.h>
+#include "uthash/uthash.h" // Hash tables of the runtime information, e.g. TSTypeInfo
 
 #define TREE_SITTER_MAJOR_VERSION 21
 
@@ -1306,6 +1307,7 @@ typedef enum TSNodeObjectType {
   TSNodeObjectTypeUInt,
   TSNodeObjectTypeDouble,
   TSNodeObjectTypePointer,
+  TSNodeObjectTypeStruct,
 
   // String Literal
   TSNodeObjectTypeString,
@@ -1323,11 +1325,100 @@ typedef enum TSNodeObjectType {
   TSNodeObjectTypeUnknown
 } TSNodeObjectType;
 
+#define TS_MAX_TYPE_NAME_SIZE 300
+#define TS_MAX_CATEGORY_NAME_SIZE 10
+/**
+ * A single type of the program being interpreted, parsed from the type info of metapro.
+ *
+ * These are collected into a uthash table keyed by `name`, which the interpreter is given as
+ * `type_info_table`. Look a type up with its name, which is the name it is spelled with in the source
+ * code, so a typedef is found under the typedef name and a struct under "<kind> <tag>":
+ *
+ *     TSTypeInfo* type_info = NULL;
+ *     HASH_FIND_STR(type_info_table, "size_t", type_info);
+ *
+ * `size` is in bytes, and is 0 for a type without a statically known size, such as void or a struct that
+ * is only forward declared. `category` is one of "int", "uint", "double", "ptr", "array", "struct" or
+ * "unknown".
+ */
+typedef struct TSTypeInfo {
+  char name[TS_MAX_TYPE_NAME_SIZE];
+  uint32_t size;
+  TSNodeObjectType category;
+  UT_hash_handle hh;
+} TSTypeInfo;
+
+#define TS_MAX_FIELD_NAME_SIZE 30
+#define TS_MAX_FIELD_TYPE_NAME_SIZE 20
+
+/**
+ * A single field of a struct/union of the program being interpreted, from the struct info of metapro.
+ *
+ * The fields of one record are collected into a uthash table keyed by `name`:
+ *
+ *     TSFieldInfo* field_info = NULL;
+ *     HASH_FIND_STR(record_info->field_info_table, "next", field_info);
+ *
+ * `offset` and `size` are in bytes and `index` is the position of the field in the record. `type` is one
+ * of "int", "uint", "double", "ptr", "struct", "struct_ptr", "array", "struct_array" or "other", while
+ * `category` is the category of the field type, the same one a TSTypeInfo carries, so a struct pointer
+ * field has type "struct_ptr" and category TSNodeObjectTypePointer.
+ *
+ * `type_name` is the name of the field type itself, not its category. A record is named by its tag, so
+ * `type_name` of a struct field is a key of `record_info_table`, and any other type is named the way it is
+ * spelled in the source code, which is how the type info names it too.
+ *
+ * A field of a record type also has `struct_type`, the name of that record, which is a key of
+ * `record_info_table`. It is an empty string for any other field, never NULL. An array or pointer field
+ * has `array_element_size` and `array_element_type` describing its element instead.
+ */
+typedef struct TSFieldInfo {
+  char name[TS_MAX_FIELD_NAME_SIZE];
+  uint32_t offset;
+  uint32_t size;
+  uint32_t index;
+  char type[TS_MAX_FIELD_TYPE_NAME_SIZE];
+  char type_name[TS_MAX_TYPE_NAME_SIZE]; // Name of the field type, e.g. "int32_t" or "struct A"
+  TSNodeObjectType category;
+  char* struct_type;
+  uint32_t array_element_size;
+  char array_element_type[TS_MAX_TYPE_NAME_SIZE];
+  UT_hash_handle hh;
+} TSFieldInfo;
+
+/**
+ * A single struct/union of the program being interpreted, from the struct info of metapro.
+ *
+ * These are collected into `record_info_table`, keyed by `name`, which is the name the type is spelled
+ * with in the source code, e.g. "struct A", so the `type.name` of a TSNodeObject looks one up directly.
+ *
+ * To resolve a field expression, find the record of the type of the base object, find the field in its
+ * `field_info_table`, and read it at `offset` bytes from the address of the base.
+ *
+ * `field_count` is not maintained, use HASH_COUNT(field_info_table) for the number of fields.
+ */
+typedef struct TSRecordInfo {
+  char name[TS_MAX_TYPE_NAME_SIZE];
+  uint32_t field_count;
+  TSFieldInfo* field_info_table; // Hashtable of TSFieldInfo
+  UT_hash_handle hh;
+} TSRecordInfo;
+
+/**
+ * Every struct/union of the program being interpreted, keyed by type name.
+ *
+ * Declaration only: the single definition lives in src/interpreter/utils.c. metapro fills it at startup,
+ * and it stays empty when the program running the interpreter has no struct info.
+ */
+extern TSRecordInfo* record_info_table;
+
 /**
  * Runtime object for the TSNode used to 'execute' TSNode with runtime information.
- * 
- * For example, if the name is "a" and the type is `TSNodeObjectTypeInt32`, 
+ *
+ * For example, if the name is "a" and the type is `TSNodeObjectTypeInt32`,
  * access the actual value with the `value.int32`.
+ *
+ * `type_name` represents the type name in the actual source code to get precise type info.
  * 
  * Do not change the value directly after the object is created.
  * 
@@ -1359,8 +1450,7 @@ typedef enum TSNodeObjectType {
 typedef struct TSNodeObject {
   char* name;
   TSNode node;
-  uint64_t size;
-  TSNodeObjectType type;
+  TSTypeInfo type;
   union {
     int64_t int64;
     uint64_t uint64;
@@ -1373,28 +1463,51 @@ typedef struct TSNodeObject {
     jmp_buf* jmpbuf; // Used for continue, break, goto and return stmt in the code
   } value;
   const void* reference;
-  uint32_t array_element_size;
-  TSNodeObjectType array_element_type; // Type of the array or element then type == TSNodeObjectTypePointer
+  TSTypeInfo array_element_type; // Type of the array or element then type == TSNodeObjectTypePointer
 } TSNodeObject;
+
+TSTypeInfo ts_interpreter_get_type_info(const char* name, uint32_t size, TSNodeObjectType category);
+
+/**
+ * Convert a category name of metapro into the type of the interpreter.
+ *
+ * An array becomes a pointer, because an array is handled as a pointer to its first element here. It also
+ * accepts the wider vocabulary a TSFieldInfo uses, where "struct_ptr" and "struct_array" are pointers too.
+ *
+ * @param category "int", "uint", "double", "ptr", "array", "struct", "struct_ptr", "struct_array",
+ *                 "other" or "unknown"
+ * @return matching type, TSNodeObjectTypeUnknown if the category is not one of those
+ */
+TSNodeObjectType ts_interpreter_get_category_type(const char* category);
+TSTypeInfo ts_interpreter_get_pointer_type_info(TSTypeInfo pointee_type_info);
 
 /**
  * Execute the given TSNode with the runtime information.
- * 
+ *
  * It only support variable, literal, unary/binary operations.
  * It does not support the other expressions, such as function call.
- * 
+ *
  * Collect all available variable to array and pass it to vars.
  * Add field member variables into single TSNodeObject.
  * If the field member is `a->b.c`, create TSNodeObject with name "a->b.c" and set value with the actual value.
+ *
+ * `type_info_table` is the uthash table of every type of the program, or NULL when the caller has none.
  */
-TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /**
  * Get the TSNodeObject of the given variable.
  * 
  * If the variable is not found, throw assertion error.
  */
-TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
+
+/**
+ * Get the TSNodeObject of the given field expression.
+ *
+ * It search `record_info_table` to find the struct/union type of the base object, and then search the `field_info_table` of that struct/union to find the field.
+ */
+TSNodeObject ts_interpreter_field(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /**
  * Create new TSNodeObject of the given literal.
@@ -1406,14 +1519,14 @@ TSNodeObject ts_interpreter_literal(TSNode node);
  * 
  * It internally calls `ts_interpreter_simulate` with the operand.
  */
-TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /**
  * Create new TSNodeObject of the given binary operation.
  * 
  * It internally calls `ts_interpreter_simulate` with the left and right operands.
  */
-TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /**
  * Create new TSNodeFunction of the given function call.
@@ -1424,7 +1537,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
  * It internally calls `ts_interpreter_simulate` with the arguments.
  * Thus, every arguments must be acceptable by this interpreter.
  */
-TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /**
  * Create new TSNodeObject of the given array subscript operation.
@@ -1434,7 +1547,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
  * 
  * It internally calls `ts_interpreter_simulate` with index operands.
  */
-TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /**
  * Create new TSNodeObject of the given assignment operation.
@@ -1443,7 +1556,7 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
  * It updates the variable value in vars.
  * Normal assignment and compound assignment (+=, -=, etc.) are supported.
  */
-TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /* New variable declarations */
 #define MAX_VARS 10
@@ -1459,7 +1572,7 @@ extern uint32_t new_var_count;
  * For initializer, it internally calls `ts_interpreter_simulate` with the initializer expression.
  * Internally, it stores the variable in the `new_variables` array and updates the `new_var_count`.
  */
-TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars);
+TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
 /*************************************/
 /*  Section - Utilities (FreddyYJ)   */

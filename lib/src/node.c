@@ -811,7 +811,7 @@ char *trim(char *str);
 void ts_node_find_variables(TSNode node, const char* code, uint32_t* count, char** variables) {
   for (uint32_t i = 0; i < ts_node_named_child_count(node); i++) {
     TSNode child = ts_node_named_child(node, i);
-    if (strcmp(ts_node_type(child), "identifier") == 0 || strcmp(ts_node_type(child), "field_expression") == 0) {
+    if (strcmp(ts_node_type(child), "identifier") == 0 || strcmp(ts_node_type(child), "field_identifier") == 0) {
       char* var_name = ts_node_find_value(child);
       if (var_name) {
         variables[*count] = ts_malloc(sizeof(char) * (strlen(var_name) + 1));

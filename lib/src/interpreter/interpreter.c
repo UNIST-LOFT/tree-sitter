@@ -172,17 +172,55 @@ TSNodeObject ts_interpreter_field(TSNode node, uint64_t var_count, TSNodeObject*
 }
 
 TSNodeObject ts_interpreter_sizeof(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
+    uint32_t size;
     if (strcmp(ts_node_type(ts_node_named_child(node, 0)), "type_descriptor") == 0) {
-        TS_PRINTF_ERROR("Currently sizeof cannot handle type descriptor (e.g., int)\n");
+        // Sizeof type
+        char* type_name = ts_node_find_value(ts_node_named_child(node, 0));
+        if (type_name == NULL) {
+            TS_PRINTF_ERROR("No name for the type of a sizeof\n");
+        }
+        TSTypeInfo* type_info = NULL;
+        HASH_FIND_STR(type_info_table, type_name, type_info);
+        if (type_info == NULL) {
+            TS_PRINTF_ERROR("Type of a sizeof not found in type_info_table: %s\n", type_name);
+        }
+        size = type_info->size;
     }
-    TSNodeObject obj = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars, type_info_table);
-    TSNodeObject size_obj;
+    else {
+        // Sizeof value or project-defined type
+        TSNode operand = ts_node_named_child(node, 0);
+        TSNode identifier = operand;
+        if (strcmp(ts_node_type(operand), "parenthesized_expression") == 0 &&
+                ts_node_named_child_count(operand) == 1) {
+            identifier = ts_node_named_child(operand, 0);
+        }
+
+        TSTypeInfo* type_info = NULL;
+        if (strcmp(ts_node_type(identifier), "identifier") == 0) {
+            char* name = ts_node_find_value(identifier);
+            if (name != NULL) {
+                // Type info exist, project-defined type
+                HASH_FIND_STR(type_info_table, name, type_info);
+            }
+        }
+
+        if (type_info != NULL) {
+            size = type_info->size;
+        }
+        else {
+            // Type info not exist, variable or value
+            TSNodeObject obj = ts_interpreter_simulate(operand, var_count, vars, type_info_table);
+            size = obj.type.size;
+        }
+    }
+
+    TSNodeObject size_obj = {0}; // TSTypeInfo holds a name, so zero it instead of leaving garbage
     size_obj.name = NULL; // No name for sizeof result
     size_obj.node = node;
     size_obj.type = ts_interpreter_get_type_info("size_t", sizeof(uint64_t), TSNodeObjectTypeUInt);
-    size_obj.value.uint64 = obj.type.size; // Return the size of the object
+    size_obj.value.uint64 = size;
     size_obj.reference = malloc(sizeof(uint64_t));
-    *((uint64_t*)size_obj.reference) = obj.type.size; // Store the size in
+    *((uint64_t*)size_obj.reference) = size;
     return size_obj;
 }
 
@@ -670,6 +708,9 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
             obj.value.int64 = 0;
             return obj;
         }
+    }
+    else if (strcmp(ts_node_type(node), "for_statement") == 0) {
+        return ts_interpreter_for_stmt(node, var_count, vars, type_info_table);
     }
     /* Variable declaration */
     else if (strcmp(ts_node_type(node), "declaration") == 0) {

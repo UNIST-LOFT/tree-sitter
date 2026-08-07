@@ -72,7 +72,14 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
                         type_text ? type_text : "(null)");
     }
 
-    TSNode rhs = ts_node_named_child(node, 1);
+    uint32_t rhs_index = 1;
+    while (rhs_index < ts_node_named_child_count(node) &&
+            (strcmp(ts_node_type(ts_node_named_child(node, rhs_index)), "type_qualifier") == 0 || 
+             strcmp(ts_node_type(ts_node_named_child(node, rhs_index)), "storage_class_specifier") == 0)) {
+        // Skip type qualifiers
+        rhs_index++;
+    }
+    TSNode rhs = ts_node_named_child(node, rhs_index);
     TSNodeObject new_var;
     if (strcmp(ts_node_type(rhs), "identifier") == 0) {
         // primitive var without init
@@ -197,7 +204,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
         } else if (init.type.category == TSNodeObjectTypeDouble) {
             *(double*)ref = init.value.double64;
         } else if (init.type.category == TSNodeObjectTypePointer) {
-            *(void**)ref = (void*)init.reference;
+            *(void**)ref = init.value.pointer;
         } else {
             TS_PRINTF_ERROR("Unsupported initializer type for variable declaration.\n");
         }
@@ -210,7 +217,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
         } else if (decl_type == TSNodeObjectTypeDouble) {
             new_var.value.double64 = init.value.double64;
         } else if (decl_type == TSNodeObjectTypePointer) {
-            new_var.value.pointer = *(void**)init.reference;
+            new_var.value.pointer = init.value.pointer;
         }
     }
 

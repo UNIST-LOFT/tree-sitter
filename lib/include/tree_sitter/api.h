@@ -1574,6 +1574,15 @@ extern uint32_t new_var_count;
  */
 TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
+/**
+ * Create new TSNodeObject of the given for statement.
+ * 
+ * For init statement, it internally calls `ts_interpreter_simulate` **once before** the loop starts.
+ * For condition statement, it internally calls `ts_interpreter_simulate` **before** each iteration.
+ * For update statement, it internally calls `ts_interpreter_simulate` **after** each iteration.
+ */
+TSNodeObject ts_interpreter_for_stmt(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
+
 /*************************************/
 /*  Section - Utilities (FreddyYJ)   */
 /*************************************/
@@ -1584,7 +1593,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
  * Supports printf-style formatting.
  */
 #define TS_PRINTF_ERROR(fmt, ...) do { \
-    fprintf(stderr, "ERROR: " fmt, ##__VA_ARGS__); \
+    fprintf(stderr, "%s:%d: ERROR: " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
     abort(); \
 } while (0)
 

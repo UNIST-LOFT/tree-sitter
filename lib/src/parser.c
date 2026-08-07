@@ -2193,10 +2193,12 @@ char* ts_node_find_value_2(TSNode node) {
 
 void ts_add_value(TSNode node,const char* code) {
   TSTree* tree = node.tree;
-  if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 || 
+  if (strcmp(ts_node_type(node), "identifier") == 0 || strcmp(ts_node_type(node),"number_literal")==0 ||
       strcmp(ts_node_type(node),"field_identifier")==0 || strcmp(ts_node_type(node), "statement_identifier")==0 ||
       strcmp(ts_node_type(node),"integer")==0 ||
-      strcmp(ts_node_type(node),"float")==0) {
+      strcmp(ts_node_type(node),"float")==0 ||
+      // Name of the type of a sizeof, so the interpreter can look its size up
+      strcmp(ts_node_type(node),"type_descriptor")==0) {
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
     char* value = trim(ts_substr(code,start,end));
@@ -2407,18 +2409,24 @@ void ts_add_value(TSNode node,const char* code) {
   }
   else if (strcmp(ts_node_type(node), "declaration") == 0) {
     // Variable declaration in C
-    TSNode type_node = ts_node_named_child(node, 0); // Type node
+    uint32_t type_index = 0;
+    while (type_index < ts_node_named_child_count(node) && 
+        (strcmp(ts_node_type(ts_node_named_child(node, type_index)), "type_qualifier") == 0 || 
+         strcmp(ts_node_type(ts_node_named_child(node, type_index)), "storage_class_specifier") == 0)) {
+      type_index++;
+    }
+    TSNode type_node = ts_node_named_child(node, type_index); // Type node
     uint32_t start = ts_node_start_byte(type_node);
     uint32_t end = ts_node_end_byte(type_node);
     char* value = trim(ts_substr(code,start,end)); // variable type
-    if (ts_node_named_child_count(node) > 1 && strcmp(ts_node_type(ts_node_named_child(node, 1)), "pointer_declarator") == 0) {
+    if (ts_node_named_child_count(node) > 1 && strcmp(ts_node_type(ts_node_named_child(node, type_index+1)), "pointer_declarator") == 0) {
       // Add * for pointer declarator
       value = ts_malloc(strlen(value) + 2);
       sprintf(value, "%s*", trim(ts_substr(code,start,end)));
     }
-    else if (ts_node_named_child_count(node) > 1 && strcmp(ts_node_type(ts_node_named_child(node, 1)), "init_declarator") == 0) {
+    else if (ts_node_named_child_count(node) > 1 && strcmp(ts_node_type(ts_node_named_child(node, type_index+1)), "init_declarator") == 0) {
       // Pointer declarator with initialization
-      TSNode init_node = ts_node_named_child(node, 1);
+      TSNode init_node = ts_node_named_child(node, type_index+1);
       if (ts_node_named_child_count(init_node) > 1 && strcmp(ts_node_type(ts_node_named_child(init_node, 0)), "pointer_declarator") == 0) {
         value = ts_malloc(strlen(value) + 2);
         sprintf(value, "%s*", trim(ts_substr(code,start,end)));

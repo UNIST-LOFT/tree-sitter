@@ -398,11 +398,11 @@ uint64_t size_max(uint64_t a, uint64_t b) {
 TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     char* op=ts_node_find_value(node);
     TSNodeObject obj1=ts_interpreter_simulate(ts_node_named_child(node,0),var_count,vars,type_info_table);
-    TSNodeObject obj2;
+    TSNodeObject obj2 = {0};
     if (strcmp(op,"&&")!=0 && strcmp(op,"||")!=0) {
         obj2=ts_interpreter_simulate(ts_node_named_child(node,1),var_count,vars,type_info_table);
     }
-    TSNodeObject result;
+    TSNodeObject result = {0};
     result.name=ts_node_find_value(node);
     result.node=node;
     if (obj1.type.size > 0 && obj2.type.size > 0) {

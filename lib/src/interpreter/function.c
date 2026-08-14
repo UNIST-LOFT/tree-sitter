@@ -9,12 +9,12 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     if (strcmp(ts_node_type(node), "call_expression") != 0) {
         TS_PRINTF_ERROR("Node is not a call_expression: %s\n", ts_node_type(node));
     }
-    TSNodeObject obj;
+    TSNodeObject obj = {0};
     const char* func_name = ts_node_find_value(ts_node_named_child(node,0));
     obj.name = malloc(strlen(func_name)+1);
     strcpy(obj.name, func_name); // Copy function name
     
-    TSNodeObject found;
+    TSNodeObject found = {0};
     int exists = 0;
     for (size_t i = 0; i < var_count; i++) {
         if (strcmp(vars[i].name, obj.name) == 0) {
@@ -59,69 +59,28 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     for (size_t i = 0; i < arg_count; i++) {
         switch (args[i].type.category) {
             case TSNodeObjectTypeInt:
-                if (args[i].array_element_type.size == 1 || args[i].array_element_type.size == 2 ||
-                        args[i].array_element_type.size == 4 || args[i].array_element_type.size == 8) {
-                    switch (args[i].array_element_type.size) {
-                        case 1:
-                            arg_types[i] = &ffi_type_sint8;
-                            break;
-                        case 2:
-                            arg_types[i] = &ffi_type_sint16;
-                            break;
-                        case 4:
-                            arg_types[i] = &ffi_type_sint32;
-                            break;
-                        case 8:
-                            arg_types[i] = &ffi_type_sint64;
-                            break;
-                        default:
-                            TS_PRINTF_ERROR("Unsupported int array element size: %" PRIu32 "\n", args[i].array_element_type.size);
-                    }
-                }
-                else {
-                    if (args[i].type.size == 1)
-                        arg_types[i] = &ffi_type_sint8;
-                    else if (args[i].type.size == 2)
-                        arg_types[i] = &ffi_type_sint16;
-                    else if (args[i].type.size == 4)
-                        arg_types[i] = &ffi_type_sint32;
-                    else if (args[i].type.size == 8)
-                        arg_types[i] = &ffi_type_sint64;
-                    else
+                /* The width of the argument itself. array_element_type describes what a pointer
+                 * points at, so reading it here made an integer's width depend on a field that is
+                 * meaningless for it: `gf_realloc(payload, total_len + 1)` asked for 258 & 0xFF = 2
+                 * bytes whenever that field happened to hold 1. */
+                switch (args[i].type.size) {
+                    case 1: arg_types[i] = &ffi_type_sint8; break;
+                    case 2: arg_types[i] = &ffi_type_sint16; break;
+                    case 4: arg_types[i] = &ffi_type_sint32; break;
+                    case 8: arg_types[i] = &ffi_type_sint64; break;
+                    default:
                         TS_PRINTF_ERROR("Unsupported int size: %" PRIu32 "\n", args[i].type.size);
                 }
                 arg_values[i] = &args[i].value.int64;
                 break;
             case TSNodeObjectTypeUInt:
-                if (args[i].array_element_type.size == 1 || args[i].array_element_type.size == 2 ||
-                        args[i].array_element_type.size == 4 || args[i].array_element_type.size == 8) {
-                    switch (args[i].array_element_type.size) {
-                        case 1:
-                            arg_types[i] = &ffi_type_uint8;
-                            break;
-                        case 2:
-                            arg_types[i] = &ffi_type_uint16;
-                            break;
-                        case 4:
-                            arg_types[i] = &ffi_type_uint32;
-                            break;
-                        case 8:
-                            arg_types[i] = &ffi_type_uint64;
-                            break;
-                        default:
-                            TS_PRINTF_ERROR("Unsupported uint array element size: %" PRIu32 "\n", args[i].array_element_type.size);
-                    }
-                }
-                else {
-                    if (args[i].type.size == 1)
-                        arg_types[i] = &ffi_type_uint8;
-                    else if (args[i].type.size == 2)
-                        arg_types[i] = &ffi_type_uint16;
-                    else if (args[i].type.size == 4)
-                        arg_types[i] = &ffi_type_uint32;
-                    else if (args[i].type.size == 8)
-                        arg_types[i] = &ffi_type_uint64;
-                    else
+                // The width of the argument itself; see the signed case above
+                switch (args[i].type.size) {
+                    case 1: arg_types[i] = &ffi_type_uint8; break;
+                    case 2: arg_types[i] = &ffi_type_uint16; break;
+                    case 4: arg_types[i] = &ffi_type_uint32; break;
+                    case 8: arg_types[i] = &ffi_type_uint64; break;
+                    default:
                         TS_PRINTF_ERROR("Unsupported uint size: %" PRIu32 "\n", args[i].type.size);
                 }
                 arg_values[i] = &args[i].value.uint64;

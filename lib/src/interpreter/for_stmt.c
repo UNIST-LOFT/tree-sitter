@@ -41,7 +41,7 @@ TSNodeObject ts_interpreter_for_stmt(TSNode node, uint64_t var_count, TSNodeObje
     }
 
     // For stmt not return value, create dummy
-    TSNodeObject result;
+    TSNodeObject result = {0};
     result.name = "for_stmt";
     result.node = node;
     result.type = ts_interpreter_get_type_info("void", 0, TSNodeObjectTypeUnknown);

@@ -4,19 +4,81 @@
 #include <assert.h>
 #include <inttypes.h>
 
+/* Read a variable's current value out of the storage it stands for.
+ *
+ * The TSNodeObject of a variable caches its value, but every write goes through `reference`
+ * alone: an assignment, `++`/`--` (see ts_interpreter_unary), and the patched program itself
+ * between two calls into the interpreter. Handing back the cached copy would therefore report
+ * the value the variable had when it was declared or registered, no matter how often it is
+ * written -- which is why a loop that counts never ends (ts_interpreter_for_stmt re-evaluates
+ * its condition through this same lookup).
+ *
+ * The widths mirror the ones __metapro_exec_expr_c loads these objects with, so a variable
+ * reads back exactly as it was built. Only the categories whose `reference` points at storage
+ * holding the value are re-read: a struct, a function or a jmp_buf keeps its own address in
+ * `value`, which is what `reference` already is, and a width this does not know is left as it
+ * was rather than guessed at. */
+static TSNodeObject ts_interpreter_load_variable(TSNodeObject var) {
+    if (var.reference == NULL) {
+        return var;
+    }
+
+    switch (var.type.category) {
+        case TSNodeObjectTypeInt:
+            switch (var.type.size) {
+                case 1: var.value.int64 = *(const int8_t*)var.reference; break;
+                case 2: var.value.int64 = *(const int16_t*)var.reference; break;
+                case 4: var.value.int64 = *(const int32_t*)var.reference; break;
+                case 8: var.value.int64 = *(const int64_t*)var.reference; break;
+                default: break;
+            }
+            break;
+        case TSNodeObjectTypeUInt:
+            switch (var.type.size) {
+                case 1: var.value.uint64 = *(const uint8_t*)var.reference; break;
+                case 2: var.value.uint64 = *(const uint16_t*)var.reference; break;
+                case 4: var.value.uint64 = *(const uint32_t*)var.reference; break;
+                case 8: var.value.uint64 = *(const uint64_t*)var.reference; break;
+                default: break;
+            }
+            break;
+        case TSNodeObjectTypeDouble:
+            switch (var.type.size) {
+                case 4: var.value.double64 = *(const float*)var.reference; break;
+                case 8: var.value.double64 = *(const double*)var.reference; break;
+                case 16: var.value.double64 = *(const long double*)var.reference; break;
+                default: break;
+            }
+            break;
+        case TSNodeObjectTypePointer:
+            /* Only when `reference` is a variable that holds the pointer. An array is registered as
+             * itself (MetaproVarTypeArray), so its reference already *is* what the pointer points
+             * at -- re-reading it would take the first bytes of the array as the address, which is
+             * what a callee then got handed for `snprintf(szInt, ...)`. Those two cases are exactly
+             * told apart by whether the reference is the value. */
+            if (var.reference != var.value.pointer) {
+                var.value.pointer = *(void* const*)var.reference;
+            }
+            break;
+        default:
+            break;
+    }
+    return var;
+}
+
 TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     char* node_name=ts_node_find_value(node);
     // Check newly declared variables first
     for (size_t i=0;i<new_var_count;i++) {
         if (strcmp(node_name, new_variables[i].name)==0) {
-            return new_variables[i];
+            return ts_interpreter_load_variable(new_variables[i]);
         }
     }
 
     // It is not a newly declared variable, check the existing variables
     for (size_t i=0;i<var_count;i++) {
         if (strcmp(node_name, vars[i].name)==0) {
-            return vars[i];
+            return ts_interpreter_load_variable(vars[i]);
         }
     }
 
@@ -162,7 +224,17 @@ TSNodeObject ts_interpreter_field(TSNode node, uint64_t var_count, TSNodeObject*
             }
             break;
         case TSNodeObjectTypePointer:
-            field_obj.value.pointer = *((void**)field_obj.reference); // Always sizeof(void*)
+            /* An array member *is* its storage, so the address of the elements is the field's own
+             * address; only a pointer member holds that address and has to be read. Reading an
+             * array member would take its first bytes as the address, which is what a callee got
+             * handed for `memcpy(hdr->buf, ...)`, and it would also leave `reference` and `value`
+             * disagreeing -- how ts_interpreter_subscript tells the two apart. */
+            if (strcmp(field_info->type, "array") == 0 || strcmp(field_info->type, "struct_array") == 0) {
+                field_obj.value.pointer = (void*)field_obj.reference;
+            }
+            else {
+                field_obj.value.pointer = *((void**)field_obj.reference); // Always sizeof(void*)
+            }
             break;
         default:
             // Just set reference only for struct and general types
@@ -246,7 +318,7 @@ int is_postfix(char* str,char* postfix) {
 }
 
 TSNodeObject ts_interpreter_literal(TSNode node) {
-    TSNodeObject obj;
+    TSNodeObject obj = {0};
     obj.name=ts_node_find_value(node);
     obj.node=node;
     obj.array_element_type.size = 0;
@@ -419,7 +491,7 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
     TSNodeObject base_obj = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars, type_info_table);
     TSNodeObject index_obj = ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars, type_info_table);
 
-    TSNodeObject obj;
+    TSNodeObject obj = {0};
     obj.name = NULL; // No name for subscript result
     obj.node = node;
     obj.type = base_obj.array_element_type;
@@ -432,27 +504,36 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
     else
         TS_PRINTF_ERROR("Array index must be int or uint type\n");
 
+    /* Where the elements actually are.
+     *
+     * An array is registered as itself (MetaproVarTypeArray) and an array member is its own storage,
+     * so for those the reference already is the elements. A pointer variable, a declared pointer or
+     * a pointer member instead *holds* the address, and its reference is the variable holding it --
+     * indexing off that walks the variable rather than the data, so `safe_uri[len] = '\0'` never
+     * reached the buffer it was meant to terminate. The two cases are told apart the same way
+     * ts_interpreter_load_variable tells them apart: an array's value is its reference. */
+    const unsigned char* elements = (base_obj.reference == base_obj.value.pointer)
+            ? (const unsigned char*)base_obj.reference
+            : (const unsigned char*)base_obj.value.pointer;
+    void* element_ref = (void*)(elements + (index * (size_t)base_obj.array_element_type.size));
+
     if (base_obj.array_element_type.category == TSNodeObjectTypeInt) {
         obj.type.category = TSNodeObjectTypeInt;
         switch (base_obj.array_element_type.size) {
             case 1:                
-                obj.reference = (void*)((unsigned char*)base_obj.reference + 
-                        (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.int64 = *((int8_t*)obj.reference); // Store pointer value as int64
                 break;
             case 2:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + 
-                        (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.int64 = *((int16_t*)obj.reference); // Store pointer value as int64
                 break;
             case 4:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + 
-                        (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.int64 = *((int32_t*)obj.reference); // Store pointer value as int64
                 break;
             case 8:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + 
-                        (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.int64 = *((int64_t*)obj.reference); // Store pointer value as int64
                 break;
             default:
@@ -464,19 +545,19 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
         obj.type.category = TSNodeObjectTypeUInt;
         switch (base_obj.array_element_type.size) {
             case 1:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.uint64 = *((uint8_t*)obj.reference); // Store pointer value as uint64
                 break;
             case 2:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.uint64 = *((uint16_t*)obj.reference); // Store pointer value as uint64
                 break;
             case 4:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.uint64 = *((uint32_t*)obj.reference); // Store pointer value as uint64
                 break;
             case 8:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.uint64 = *((uint64_t*)obj.reference); // Store pointer value as uint64
                 break;
             default:
@@ -488,11 +569,11 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
         obj.type.category = TSNodeObjectTypeDouble;
         switch (base_obj.array_element_type.size) {
             case 4:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.double64 = *((float*)obj.reference); // Store pointer value as double64
                 break;
             case 8:
-                obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+                obj.reference = element_ref;
                 obj.value.double64 = *((double*)obj.reference); // Store pointer value as double64
                 break;
             default:
@@ -502,7 +583,7 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
     }
     else if (base_obj.array_element_type.category == TSNodeObjectTypePointer) {
         obj.type.category = TSNodeObjectTypePointer;
-        obj.reference = (void*)((unsigned char*)base_obj.reference + (index * base_obj.array_element_type.size)); // Compute offset
+        obj.reference = element_ref;
         obj.value.pointer = *((void**)obj.reference); // Store pointer value
         obj.array_element_type.size = 1; // Unknown size for pointer array element
     }
@@ -536,7 +617,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     }
     else if (strcmp(ts_node_type(node),"string_literal")==0) {
         // For string literal, we convert it to pointer of char(s)
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         char* value = malloc(sizeof(char)*(strlen(ts_node_find_value(node))+1));
         strcpy(value, ts_node_find_value(node));
         value[strlen(value)] = '\0';
@@ -549,7 +630,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return obj;
     }
     else if (strcmp(ts_node_type(node),"true")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         obj.name="true";
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("unsigned int", sizeof(unsigned int), TSNodeObjectTypeUInt);
@@ -557,7 +638,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return obj;
     }
     else if (strcmp(ts_node_type(node),"false")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         obj.name="false";
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("unsigned int", sizeof(unsigned int), TSNodeObjectTypeUInt);
@@ -565,7 +646,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return obj;
     }
     else if (strcmp(ts_node_type(node), "null")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         obj.name="null";
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("void*", sizeof(void*), TSNodeObjectTypePointer);
@@ -579,7 +660,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_sizeof(node, var_count, vars, type_info_table);
     }
     else if (strcmp(ts_node_type(node), "conditional_expression") == 0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         TSNodeObject cond_result = ts_interpreter_simulate(ts_node_named_child(node, 0),var_count, vars, type_info_table);
         if (cond_result.value.int64) {
             obj = ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars, type_info_table);
@@ -593,7 +674,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_function(node,var_count,vars,type_info_table);
     }
     else if (strcmp(ts_node_type(node), "compound_statement") == 0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         for (size_t i = 0; i < ts_node_named_child_count(node); i++) {
             obj = ts_interpreter_simulate(ts_node_named_child(node, i), var_count, vars, type_info_table);
         }
@@ -610,7 +691,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     }
     /* control flow statements do not return interpreter; just jump */
     else if (strcmp(ts_node_type(node), "continue_statement")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         int8_t found = 0;
         for (size_t i=0;i<var_count;i++) {
             if (strcmp(vars[i].name, "continue")==0) {
@@ -625,7 +706,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         longjmp(*(obj.value.jmpbuf), 1);
     }
     else if (strcmp(ts_node_type(node), "break_statement")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         int8_t found = 0;
         for (size_t i=0;i<var_count;i++) {
             if (strcmp(vars[i].name, "break")==0) {
@@ -640,7 +721,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         longjmp(*(obj.value.jmpbuf), 1);
     }
     else if (strcmp(ts_node_type(node), "goto_statement")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         char* label_name = malloc(7 + strlen(ts_node_find_value(ts_node_named_child(node, 0)))); // "goto " + label name
         sprintf(label_name, "goto %s", ts_node_find_value(ts_node_named_child(node, 0)));
         int8_t found = 0;
@@ -658,7 +739,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         longjmp(*(obj.value.jmpbuf), 1);
     }
     else if (strcmp(ts_node_type(node), "return_statement")==0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         int8_t found = 0;
         for (size_t i=0;i<var_count;i++) {
             if (strcmp(vars[i].name, "return")==0) {
@@ -701,7 +782,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         }
         else {
             // No else branch, just return dummy value
-            TSNodeObject obj;
+            TSNodeObject obj = {0};
             obj.name = NULL;
             obj.node = node;
             obj.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -717,7 +798,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         return ts_interpreter_var_decl(node, var_count, vars, type_info_table);
     }
     else if (strcmp(ts_node_type(node), "comment") == 0) {
-        TSNodeObject obj;
+        TSNodeObject obj = {0};
         obj.name = NULL;
         obj.node = node;
         obj.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);

@@ -7,104 +7,25 @@
 TSNodeObject new_variables[MAX_VARS];
 uint32_t new_var_count = 0;
 
-/* Maps concrete C type spellings to the interpreter's (type, byte-width)
- * representation. This mirrors the _CAST_TYPE_WIDTH table in the Python front
- * end. Each entry lists every spelling that resolves to the same width; the
- * `names` array is NULL-terminated. */
-typedef struct {
-    TSNodeObjectType type;
-    uint64_t size;
-    const char* names[20];
-} TSCastTypeWidth;
-
-static const TSCastTypeWidth CAST_TYPE_WIDTH[] = {
-    // signed integers
-    {TSNodeObjectTypeInt, 1, {"int8_t", "__int8", "char", "signed char", "i8", "s8", NULL}},
-    {TSNodeObjectTypeInt, 2, {"int16_t", "__int16", "short", "short int", "i16", "s16",
-                              "signed short", "signed short int", NULL}},
-    {TSNodeObjectTypeInt, 4, {"int32_t", "__int32", "int", "signed", "signed int",
-                              "i32", "s32", "wchar_t", NULL}},
-    {TSNodeObjectTypeInt, 8, {"int64_t", "__int64", "long", "long int",
-                              "signed long", "signed long int", "long long",
-                              "long long int", "signed long long",
-                              "i64", "s64",
-                              "signed long long int", "ssize_t", "ptrdiff_t",
-                              "intptr_t", "intmax_t", "off_t", "off64_t", NULL}},
-    // unsigned integers
-    {TSNodeObjectTypeUInt, 1, {"uint8_t", "u_int8_t", "unsigned char", "u8", NULL}},
-    {TSNodeObjectTypeUInt, 2, {"uint16_t", "u_int16_t", "unsigned short", "u16",
-                               "unsigned short int", NULL}},
-    {TSNodeObjectTypeUInt, 4, {"uint32_t", "u_int32_t", "unsigned", "unsigned int", "u32",
-                               "u_int", NULL}},
-    {TSNodeObjectTypeUInt, 8, {"uint64_t", "u_int64_t", "size_t", "uintptr_t", "u64",
-                               "uintmax_t", "unsigned long", "unsigned long int",
-                               "unsigned long long", "unsigned long long int", NULL}},
-    // floating point
-    {TSNodeObjectTypeDouble, 4, {"float", NULL}},
-    {TSNodeObjectTypeDouble, 8, {"double", "long double", NULL}},
-    
-    // pointer types
-    {TSNodeObjectTypePointer, sizeof(void*), {"void*", "char*", "int*", "float*", "double*",
-                                              "long*", "short*", "unsigned char*",
-                                              "unsigned short*", "unsigned int*", "unsigned long*",
-                                              "long long*", "unsigned long long*", NULL}},
-};
 
 
-/*
-    The (category, width) of what a pointer declaration points at, from the declared type text:
-    "char*" -> char, one byte. Looking the whole text up instead found the pointer entry again, which
-    made every element eight bytes wide, so `p[i]`, `*p` and `p++` all stepped in units of a pointer.
-
-    A pointee this table does not name -- `void*`, a struct pointer -- is treated as bytes, the way
-    GNU C treats void pointer arithmetic; the declaration has no record info to do better, and it is
-    the width the surrounding code steps by.
-*/
-static void ts_interpreter_pointee_type(const char* type_text, TSNodeObjectType* category,
-                                        uint64_t* size) {
-    *category = TSNodeObjectTypeInt;
-    *size = 1;
-    if (type_text == NULL) {
-        return;
-    }
-    char pointee[TS_MAX_TYPE_NAME_SIZE];
-    snprintf(pointee, sizeof(pointee), "%s", type_text);
-    size_t length = strlen(pointee);
-    while (length > 0 && (pointee[length - 1] == '*' || pointee[length - 1] == ' ')) {
-        pointee[--length] = '\0';
-    }
-    for (size_t i = 0; i < sizeof(CAST_TYPE_WIDTH) / sizeof(CAST_TYPE_WIDTH[0]); i++) {
-        for (size_t j = 0; CAST_TYPE_WIDTH[i].names[j] != NULL; j++) {
-            if (strcmp(pointee, CAST_TYPE_WIDTH[i].names[j]) == 0) {
-                *category = CAST_TYPE_WIDTH[i].type;
-                *size = CAST_TYPE_WIDTH[i].size;
-                return;
-            }
-        }
-    }
-}
 
 TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
-    // Check type is valid and decide the (type, width) of this declaration.
+    /*
+        The (category, width) of the declared type, and of what it points at when it is a pointer. A
+        type of the program resolves through the type info, so a declaration of one of its typedefs or
+        records works the same as one of a built-in type. The value of a declaration node already
+        carries the "*" of a pointer declarator, see ts_add_value().
+    */
     const char* type_text = ts_node_find_value(node);
-    TSNodeObjectType decl_type = TSNodeObjectTypeUnknown;
-    uint64_t decl_size = 0;
-    int type_found = 0;
-    for (size_t i = 0; type_text != NULL && !type_found &&
-                       i < sizeof(CAST_TYPE_WIDTH) / sizeof(CAST_TYPE_WIDTH[0]); i++) {
-        for (size_t j = 0; CAST_TYPE_WIDTH[i].names[j] != NULL; j++) {
-            if (strcmp(type_text, CAST_TYPE_WIDTH[i].names[j]) == 0) {
-                decl_type = CAST_TYPE_WIDTH[i].type;
-                decl_size = CAST_TYPE_WIDTH[i].size;
-                type_found = 1;
-                break;
-            }
-        }
-    }
-    if (!type_found) {
+    TSTypeInfo decl_type_info;
+    TSTypeInfo element_type_info;
+    if (!ts_interpreter_resolve_type(type_text, type_info_table, &decl_type_info, &element_type_info)) {
         TS_PRINTF_ERROR("Unsupported variable declaration type: %s\n",
                         type_text ? type_text : "(null)");
     }
+    TSNodeObjectType decl_type = decl_type_info.category;
+    uint64_t decl_size = decl_type_info.size;
 
     TSNode rhs = ts_node_child_by_field_name(node, "declarator", strlen("declarator"));
     if (ts_node_is_null(rhs)) {
@@ -122,18 +43,26 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
 
         new_var.name = malloc(strlen(ident_name) + 1);
         strcpy(new_var.name, ident_name);
-        new_var.type = ts_interpreter_get_type_info(type_text, decl_size, decl_type);
+        new_var.type = decl_type_info;
         new_var.node = rhs;
         void* ref = malloc(decl_size);
         memset(ref, 0, decl_size); // No init: initialize to zero
         new_var.reference = ref;
 
+        /* A typedef of a pointer is declared through a plain identifier, e.g. `int_ptr p;`, so the
+           category decides what the value is, not the shape of the declarator. A record is at its own
+           address, the way ts_interpreter_field expects to find one. */
+        new_var.array_element_type = element_type_info;
         if (decl_type == TSNodeObjectTypeInt) {
             new_var.value.int64 = 0;
         } else if (decl_type == TSNodeObjectTypeUInt) {
             new_var.value.uint64 = 0;
         } else if (decl_type == TSNodeObjectTypeDouble) {
             new_var.value.double64 = 0.0;
+        } else if (decl_type == TSNodeObjectTypePointer) {
+            new_var.value.pointer = NULL;
+        } else if (decl_type == TSNodeObjectTypeStruct) {
+            new_var.value.pointer = ref;
         } else {
             TS_PRINTF_ERROR("Unsupported variable type for declaration: %d\n", decl_type);
         }
@@ -151,13 +80,9 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
 
         new_var.name = malloc(strlen(ident_name) + 1);
         strcpy(new_var.name, ident_name);
-        new_var.type = ts_interpreter_get_type_info(type_text, decl_size, decl_type);
-        // Element type of the pointer is what it points at (see ts_interpreter_pointee_type)
-        TSNodeObjectType elem_type;
-        uint64_t elem_size;
-        ts_interpreter_pointee_type(type_text, &elem_type, &elem_size);
-        new_var.array_element_type.category = elem_type;
-        new_var.array_element_type.size = elem_size;
+        new_var.type = decl_type_info;
+        // Element type of the pointer is what it points at, so that it can be subscripted and stepped
+        new_var.array_element_type = element_type_info;
         new_var.node = rhs;
         void* ref = malloc(decl_size);
         memset(ref, 0, decl_size); // No init: initialize to zero
@@ -188,18 +113,9 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
 
         new_var.name = malloc(strlen(ident_name) + 1);
         strcpy(new_var.name, ident_name);
-        new_var.type = ts_interpreter_get_type_info(type_text, decl_size, decl_type);
-        if (strcmp(ts_node_type(name_node), "pointer_declarator") == 0) {
-            TSNodeObjectType elem_type;
-            uint64_t elem_size;
-            ts_interpreter_pointee_type(type_text, &elem_type, &elem_size);
-            new_var.array_element_type.category = elem_type;
-            new_var.array_element_type.size = elem_size;
-        }
-        else {
-            new_var.array_element_type.category = TSNodeObjectTypeUnknown;
-            new_var.array_element_type.size = 0; // Not a pointer
-        }
+        new_var.type = decl_type_info;
+        // element_type_info is what the pointer points at, and unknown when this is not a pointer
+        new_var.array_element_type = element_type_info;
         new_var.node = rhs;
         void* ref = malloc(decl_size);
         memset(ref, 0, decl_size);
@@ -245,6 +161,13 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
             }
         } else if (init.type.category == TSNodeObjectTypePointer) {
             *(void**)ref = init.value.pointer;
+        } else if (init.type.category == TSNodeObjectTypeStruct) {
+            /* A record is copied whole, as far as both sides have room for: its value is its address,
+               so there is no number to convert */
+            uint64_t copied = (decl_size < init.type.size) ? decl_size : init.type.size;
+            if (init.reference != NULL && copied > 0) {
+                memcpy(ref, init.reference, copied);
+            }
         } else {
             TS_PRINTF_ERROR("Unsupported initializer type for variable declaration.\n");
         }
@@ -258,6 +181,8 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
             new_var.value.double64 = init.value.double64;
         } else if (decl_type == TSNodeObjectTypePointer) {
             new_var.value.pointer = init.value.pointer;
+        } else if (decl_type == TSNodeObjectTypeStruct) {
+            new_var.value.pointer = ref; // A record is at its own address
         }
     }
 

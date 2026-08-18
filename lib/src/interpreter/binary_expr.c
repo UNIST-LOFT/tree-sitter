@@ -149,10 +149,28 @@
                     result.reference = (void*)&(result.value.pointer); \
                     result.array_element_type = (lhs).array_element_type; \
                     break; \
-                case TSNodeObjectTypePointer: \
-                    result.type = (lhs).type; \
-                    result.value.int64 = (int64_t)((void*)(lhs).value.pointer op (rhs).value.pointer); \
+                case TSNodeObjectTypePointer: { \
+                    /* C defines p - q as the distance in bytes divided by the size of what they \
+                       point at, and the result is an integer, not a pointer. Returning the byte \
+                       distance instead made a capacity check compare slots against bytes: the \
+                       `mrb->c->stend - (ci->stack + 1)` of mruby-42503239 came out as 8 rather \
+                       than 1, so `required > available` never held, the patch never raised, and \
+                       the store it was meant to stop reproduced the original overflow. \
+                       A pointee neither side knows the size of is taken as bytes, the way GNU C \
+                       treats void pointer arithmetic. Subtracting as uint8_t* keeps the byte \
+                       distance in standard C rather than relying on that extension. */ \
+                    uint32_t element_size = (lhs).array_element_type.size != 0 \
+                            ? (lhs).array_element_type.size \
+                            : ((rhs).array_element_type.size != 0 ? (rhs).array_element_type.size : 1); \
+                    int64_t distance = (uint8_t*)((lhs).value.pointer) op (uint8_t*)((rhs).value.pointer); \
+                    result.type = ts_interpreter_get_type_info("long", sizeof(int64_t), \
+                            TSNodeObjectTypeInt); \
+                    result.array_element_type = ts_interpreter_get_type_info("", 0, \
+                            TSNodeObjectTypeUnknown); \
+                    result.value.int64 = distance / (int64_t)element_size; \
+                    result.reference = (void*)&(result.value.int64); \
                     break; \
+                } \
                 default: \
                     TS_PRINTF_ERROR("Unsupported RHS type in pointer arithmetic: %s\n", (rhs).type.name); \
             } \

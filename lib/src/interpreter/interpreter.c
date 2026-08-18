@@ -385,103 +385,28 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
 TSNodeObject ts_interpreter_casting(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     TSNodeObject obj = ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars, type_info_table); // Casted value
     char* cast_type = ts_node_find_value(node); // Casted type
-    if (strcmp(cast_type, "int8_t") == 0)
-        obj.type = ts_interpreter_get_type_info("int8_t", 1, TSNodeObjectTypeInt);
-    else if (strcmp(cast_type, "int16_t") == 0)
-        obj.type = ts_interpreter_get_type_info("int16_t", 2, TSNodeObjectTypeInt);
-    else if (strcmp(cast_type, "int32_t") == 0)
-        obj.type = ts_interpreter_get_type_info("int32_t", 4, TSNodeObjectTypeInt);
-    else if (strcmp(cast_type, "int64_t") == 0)
-        obj.type = ts_interpreter_get_type_info("int64_t", 8, TSNodeObjectTypeInt);
-    else if (strcmp(cast_type, "uint8_t") == 0 || strcmp(cast_type, "u8") == 0)
-        obj.type = ts_interpreter_get_type_info("uint8_t", 1, TSNodeObjectTypeUInt);
-    else if (strcmp(cast_type, "uint16_t") == 0 || strcmp(cast_type, "u16") == 0)
-        obj.type = ts_interpreter_get_type_info("uint16_t", 2, TSNodeObjectTypeUInt);
-    else if (strcmp(cast_type, "uint32_t") == 0 || strcmp(cast_type, "u32") == 0)
-        obj.type = ts_interpreter_get_type_info("uint32_t", 4, TSNodeObjectTypeUInt);
-    else if (strcmp(cast_type, "uint64_t") == 0 || strcmp(cast_type, "u64") == 0)
-        obj.type = ts_interpreter_get_type_info("uint64_t", 8, TSNodeObjectTypeUInt);
-    else if (strcmp(cast_type, "float") == 0)
-        obj.type = ts_interpreter_get_type_info("float", 4, TSNodeObjectTypeDouble);
-    else if (strcmp(cast_type, "double") == 0)
-        obj.type = ts_interpreter_get_type_info("double", 8, TSNodeObjectTypeDouble);
-    // Pointer casts
-    else if (strcmp(cast_type, "int8_t*") == 0 || strcmp(cast_type, "char*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("int8_t", 1, TSNodeObjectTypeInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((int8_t**)obj.reference);
-            
-        }
+    if (cast_type == NULL) {
+        TS_PRINTF_ERROR("No type name for a cast\n");
     }
-    else if (strcmp(cast_type, "int16_t*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("int16_t", 2, TSNodeObjectTypeInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((int16_t**)obj.reference);
-        }
+    if (strcmp(cast_type, "void") == 0) {
+        return obj; // Casting to void, do nothing
     }
-    else if (strcmp(cast_type, "int32_t*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("int32_t", 4, TSNodeObjectTypeInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((int32_t**)obj.reference);
-        }
-    }
-    else if (strcmp(cast_type, "int64_t*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("int64_t", 8, TSNodeObjectTypeInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((int64_t**)obj.reference);
-        }
-    }
-    else if (strcmp(cast_type, "uint8_t*") == 0 || strcmp(cast_type, "u8*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("uint8_t", 1, TSNodeObjectTypeUInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((uint8_t**)obj.reference);
-        }
-    }
-    else if (strcmp(cast_type, "uint16_t*") == 0 || strcmp(cast_type, "u16*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("uint16_t", 2, TSNodeObjectTypeUInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((uint16_t**)obj.reference);
-        }
-    }
-    else if (strcmp(cast_type, "uint32_t*") == 0 || strcmp(cast_type, "u32*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("uint32_t", 4, TSNodeObjectTypeUInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((uint32_t**)obj.reference);
-        }
-    }
-    else if (strcmp(cast_type, "uint64_t*") == 0 || strcmp(cast_type, "u64*") == 0) {
-        obj.array_element_type = ts_interpreter_get_type_info("uint64_t", 8, TSNodeObjectTypeUInt);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        if (obj.type.category != TSNodeObjectTypePointer) {
-            obj.value.pointer = *((uint64_t**)obj.reference);
-        }
-    }
-    else if (strlen(cast_type) > 0 && cast_type[strlen(cast_type) - 1] == '*') {
-        // Casting to non-primitive pointer type
-        const char* pointee_type_name = malloc(strlen(cast_type));
-        strncpy((char*)pointee_type_name, cast_type, strlen(cast_type) - 1);
-        ((char*)pointee_type_name)[strlen(cast_type) - 1] = '\0';
-        obj.array_element_type = ts_interpreter_get_type_info(pointee_type_name, 1, TSNodeObjectTypeUnknown);
-        obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
-        obj.value.pointer = *((void**)obj.reference);
-    }
-    else if (strcmp(cast_type, "void") == 0) {
-        // Casting to void, do nothing
-    }
-    else if (strlen(cast_type) >= 4 && cast_type[0] == 'e' && cast_type[1] == 'n' &&
-             cast_type[2] == 'u' && cast_type[3] == 'm') {
-        // Casting to enum, treat as int
-        obj.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
-    }
-    else {
+
+    /*
+        The cast type resolves the same way a declared type does, so a cast to a typedef or a record of
+        the program works as well as one to a built-in type, and the width of the destination decides how
+        the value is read from here on.
+    */
+    TSTypeInfo cast_type_info;
+    TSTypeInfo element_type_info;
+    if (!ts_interpreter_resolve_type(cast_type, type_info_table, &cast_type_info, &element_type_info)) {
         TS_PRINTF_ERROR("Unsupported cast type: %s\n", cast_type);
+    }
+
+    obj.type = cast_type_info;
+    if (cast_type_info.category == TSNodeObjectTypePointer) {
+        // What the cast pointer points at, which is what subscripting and stepping it move by
+        obj.array_element_type = element_type_info;
     }
     return obj;
 }

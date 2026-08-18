@@ -1345,6 +1345,16 @@ typedef struct TSTypeInfo {
   char name[TS_MAX_TYPE_NAME_SIZE];
   uint32_t size;
   TSNodeObjectType category;
+  /*
+     Name of what a pointer points at or an array holds, and NULL for any other type, for one whose
+     element the type info does not record, and for a type built by hand rather than read from it.
+
+     A name rather than a type of its own, so that a TSNodeObject stays small: it names another entry
+     of `type_info_table`, which is where the size and the category of the element are read from. It
+     is owned by that table and lives as long as the program does, so a copy of a TSTypeInfo may keep
+     pointing at it.
+  */
+  const char* element_name;
   UT_hash_handle hh;
 } TSTypeInfo;
 
@@ -1479,6 +1489,27 @@ TSTypeInfo ts_interpreter_get_type_info(const char* name, uint32_t size, TSNodeO
  * @return matching type, TSNodeObjectTypeUnknown if the category is not one of those
  */
 TSNodeObjectType ts_interpreter_get_category_type(const char* category);
+
+/**
+ * Resolve a type as it is spelled in the source code, e.g. the type of a cast or of a declaration.
+ *
+ * The types the grammar knows by itself resolve from a fixed table, so one of them works even when the
+ * program has no type info. Any other name, a typedef or a record of the program, is looked up in
+ * `type_info_table`, where a pointer is named with a space before the stars, e.g. "int32_t *". Both
+ * spellings are accepted here.
+ *
+ * A pointer to a type that neither knows still resolves, as the width of a pointer, and a pointee that
+ * neither knows is taken as bytes, the way GNU C treats void pointer arithmetic.
+ *
+ * @param type_text type as written in the source code
+ * @param type_info_table types of the program, may be NULL
+ * @param type out, the resolved type
+ * @param element_type out, what the type points at when it is a pointer, so that it can be subscripted
+ *                     and stepped. Category TSNodeObjectTypeUnknown when the type is not a pointer
+ * @return 0 when the type is not resolved, 1 otherwise
+ */
+int ts_interpreter_resolve_type(const char* type_text, TSTypeInfo* type_info_table,
+                                TSTypeInfo* type, TSTypeInfo* element_type);
 TSTypeInfo ts_interpreter_get_pointer_type_info(TSTypeInfo pointee_type_info);
 
 /**

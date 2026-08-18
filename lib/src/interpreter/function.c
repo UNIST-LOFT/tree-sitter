@@ -47,7 +47,16 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
             obj.type = ts_interpreter_get_type_info("unsigned int", sizeof(uint32_t), TSNodeObjectTypeUInt);
             break;
         case TSNodeObjectTypeFunctionPointer:
-            obj.type = ts_interpreter_get_type_info("void*", sizeof(void*), TSNodeObjectTypePointer);
+            /* The function was registered with the type it returns a pointer to, which the result needs
+               to be subscripted and to have its fields reached. A function whose return type the type
+               info does not name keeps the bare void*, which steps by bytes. */
+            obj.array_element_type = found.array_element_type;
+            if (obj.array_element_type.name[0] != '\0') {
+                obj.type = ts_interpreter_get_pointer_type_info(obj.array_element_type);
+            }
+            else {
+                obj.type = ts_interpreter_get_type_info("void*", sizeof(void*), TSNodeObjectTypePointer);
+            }
             break;
         default:
             TS_PRINTF_ERROR("Unknown function return type: %d\n", found.type.category);

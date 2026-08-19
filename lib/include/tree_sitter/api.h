@@ -1476,6 +1476,28 @@ typedef struct TSNodeObject {
   TSTypeInfo array_element_type; // Type of the array or element then type == TSNodeObjectTypePointer
 } TSNodeObject;
 
+/**
+ * Resolve a function of the program being interpreted by its name, at the point the call is interpreted.
+ *
+ * A patch expression may call a function whose address the program being interpreted never took, so there
+ * is no variable holding it. The host provides this instead: it looks the name up in the program itself,
+ * e.g. with dlsym(), and fills `obj` with the address and what the function returns, as a
+ * TSNodeObjectTypeFunction* object.
+ *
+ * @param name name of the function, as the expression spells it
+ * @param obj object to fill, left untouched unless this returns 1
+ * @return 1 if the running program has such a function, 0 otherwise
+ */
+typedef int (*TSFunctionResolver)(const char* name, TSNodeObject* obj);
+
+/**
+ * The resolver above, or NULL when the host provides none.
+ *
+ * Declaration only: the single definition lives in src/interpreter/utils.c. metapro sets it at startup, and
+ * without it a call is limited to the functions among the variables the interpreter is given.
+ */
+extern TSFunctionResolver ts_interpreter_resolve_function;
+
 TSTypeInfo ts_interpreter_get_type_info(const char* name, uint32_t size, TSNodeObjectType category);
 
 /**

@@ -14,6 +14,12 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
     obj.name = malloc(strlen(func_name)+1);
     strcpy(obj.name, func_name); // Copy function name
     
+    /*
+        The function to call. A variable holding it comes first, so that a function pointer the program
+        passes around is called through the value it currently holds. Otherwise the host resolves the name
+        in the program itself, which is how a function whose address the program never takes is reached:
+        nothing registered it, so there is no variable to find.
+    */
     TSNodeObject found = {0};
     int exists = 0;
     for (size_t i = 0; i < var_count; i++) {
@@ -23,8 +29,14 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
             break;
         }
     }
-    if (!exists)
-        TS_PRINTF_ERROR("Function %s not found in variables\n", obj.name);
+    if (!exists && ts_interpreter_resolve_function != NULL) {
+        exists = ts_interpreter_resolve_function(obj.name, &found);
+    }
+    if (!exists) {
+        // Either the program has no such function, or it has one that nothing emitted, e.g. an unused
+        // static function
+        TS_PRINTF_ERROR("Function %s not found in variables and not in the program\n", obj.name);
+    }
 
     TSNodeObject args[10]; // Max 10 arguments
     TSNode arg_list = ts_node_named_child(node,1);

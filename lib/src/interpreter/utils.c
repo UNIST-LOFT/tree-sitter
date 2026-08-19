@@ -4,6 +4,9 @@
 /* Single definition of the struct info, filled by metapro at startup. See api.h */
 TSRecordInfo* record_info_table = NULL;
 
+/* Single definition of the function resolver, set by metapro at startup. See api.h */
+TSFunctionResolver ts_interpreter_resolve_function = NULL;
+
 /* Maps concrete C type spellings to the interpreter's (type, byte-width)
  * representation. This mirrors the _CAST_TYPE_WIDTH table in the Python front
  * end. Each entry lists every spelling that resolves to the same width; the

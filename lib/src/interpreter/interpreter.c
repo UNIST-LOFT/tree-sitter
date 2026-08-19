@@ -245,39 +245,58 @@ TSNodeObject ts_interpreter_field(TSNode node, uint64_t var_count, TSNodeObject*
 
 TSNodeObject ts_interpreter_sizeof(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     uint32_t size;
-    if (strcmp(ts_node_type(ts_node_named_child(node, 0)), "type_descriptor") == 0) {
-        // Sizeof type
-        char* type_name = ts_node_find_value(ts_node_named_child(node, 0));
+    /*
+        The operand of a sizeof is its own first named child, whatever shape it has: a type_descriptor
+        for `sizeof(int)`, a parenthesized_expression for `sizeof(x)`, and the expression itself for
+        `sizeof x`. There is no level to descend past, and descending into one of them reads a child a
+        primitive_type or an identifier does not have.
+    */
+    TSNode cur_node = node;
+
+    if (strcmp(ts_node_type(ts_node_named_child(cur_node, 0)), "type_descriptor") == 0) {
+        /*
+            Sizeof type. Resolved the same way a cast or a declared type is: a primitive comes from the
+            fixed table, so `sizeof(int)` answers even when the program carries no type info at all or
+            never used that type, and a type of the program comes from the type info.
+        */
+        char* type_name = ts_node_find_value(ts_node_named_child(cur_node, 0));
         if (type_name == NULL) {
             TS_PRINTF_ERROR("No name for the type of a sizeof\n");
         }
-        TSTypeInfo* type_info = NULL;
-        HASH_FIND_STR(type_info_table, type_name, type_info);
-        if (type_info == NULL) {
-            TS_PRINTF_ERROR("Type of a sizeof not found in type_info_table: %s\n", type_name);
+        TSTypeInfo sizeof_type;
+        TSTypeInfo sizeof_element_type;
+        if (!ts_interpreter_resolve_type(type_name, type_info_table, &sizeof_type, &sizeof_element_type)) {
+            TS_PRINTF_ERROR("Type of a sizeof not resolved: %s\n", type_name);
         }
-        size = type_info->size;
+        size = sizeof_type.size;
+    }
+    else if (strcmp(ts_node_type(ts_node_named_child(cur_node, 0)), "string_literal") == 0) {
+        // Sizeof string literal
+        size = strlen(ts_node_find_value(ts_node_named_child(cur_node, 0))) + 1; // +1 for null terminator
     }
     else {
         // Sizeof value or project-defined type
-        TSNode operand = ts_node_named_child(node, 0);
+        TSNode operand = ts_node_named_child(cur_node, 0);
         TSNode identifier = operand;
         if (strcmp(ts_node_type(operand), "parenthesized_expression") == 0 &&
                 ts_node_named_child_count(operand) == 1) {
             identifier = ts_node_named_child(operand, 0);
         }
 
-        TSTypeInfo* type_info = NULL;
+        TSTypeInfo named_type;
+        TSTypeInfo named_element_type;
+        int is_type = 0;
         if (strcmp(ts_node_type(identifier), "identifier") == 0) {
             char* name = ts_node_find_value(identifier);
+            /* A name the grammar does not know as a type is parsed as an expression, so a typedef of
+               the program reaches here. It is a type when it resolves as one, and a variable otherwise */
             if (name != NULL) {
-                // Type info exist, project-defined type
-                HASH_FIND_STR(type_info_table, name, type_info);
+                is_type = ts_interpreter_resolve_type(name, type_info_table, &named_type, &named_element_type);
             }
         }
 
-        if (type_info != NULL) {
-            size = type_info->size;
+        if (is_type) {
+            size = named_type.size;
         }
         else {
             // Type info not exist, variable or value
@@ -549,7 +568,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.name=value;
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("char*",
-            sizeof(char)*(strlen(ts_node_find_value(node))-2), TSNodeObjectTypeString);
+            sizeof(char)*(strlen(ts_node_find_value(node))+1), TSNodeObjectTypeString);
         obj.reference=&value;
         obj.value.pointer=value;
         return obj;
@@ -676,7 +695,17 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         if (!found || obj.type.category != TSNodeObjectTypeJmpBuf) {
             TS_PRINTF_ERROR("Return statement found but no corresponding jmp_buf in vars\n");
         }
-        longjmp(*(obj.value.jmpbuf), (int)obj.array_element_type.size); // array_element_size is patch ID
+        uint32_t return_id = (uint32_t)obj.array_element_type.size; // array_element_size is patch ID
+        /* The value is evaluated here, where the variables of the patch are still at hand, and left in
+           ts_interpreter_return_value for the function this jumps into: longjmp() carries the patch id
+           and nothing else. A `return;` has no value, and leaves the id at 0. */
+        ts_interpreter_return_value_id = 0;
+        if (ts_node_named_child_count(node) > 0) {
+            ts_interpreter_return_value = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count,
+                    vars, type_info_table);
+            ts_interpreter_return_value_id = return_id;
+        }
+        longjmp(*(obj.value.jmpbuf), (int)return_id);
     }
     else if (strcmp(ts_node_type(node), "if_statement") == 0) {
         TSNodeObject cond_result = ts_interpreter_simulate(ts_node_named_child(node, 0), var_count, vars, type_info_table);

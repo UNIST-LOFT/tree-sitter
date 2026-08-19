@@ -1358,7 +1358,7 @@ typedef struct TSTypeInfo {
   UT_hash_handle hh;
 } TSTypeInfo;
 
-#define TS_MAX_FIELD_NAME_SIZE 30
+#define TS_MAX_FIELD_NAME_SIZE 40
 #define TS_MAX_FIELD_TYPE_NAME_SIZE 20
 
 /**
@@ -1497,6 +1497,23 @@ typedef int (*TSFunctionResolver)(const char* name, TSNodeObject* obj);
  * without it a call is limited to the functions among the variables the interpreter is given.
  */
 extern TSFunctionResolver ts_interpreter_resolve_function;
+
+/**
+ * Value of the `return` statement an interpreted patch executed last, and the patch it belongs to.
+ *
+ * A `return` of a patch leaves the interpreter with longjmp(), which only carries an int, so the patch id
+ * is what travels through it and the value is left here. The host reads it in the function it lands in:
+ * the id it was jumped with tells it which value is meant, and it clears the id once it has taken the
+ * value, so a value is never read twice. `ts_interpreter_return_value_id` is 0 when no value is waiting,
+ * i.e. the patch returned nothing, or the jump came from somewhere else.
+ *
+ * Both are thread-local, which is the scope a jmp_buf has as well: a longjmp() stays in its thread, so the
+ * value is read by the same thread that left it here.
+ *
+ * Declaration only: the single definition lives in src/interpreter/utils.c.
+ */
+extern __thread TSNodeObject ts_interpreter_return_value;
+extern __thread uint32_t ts_interpreter_return_value_id;
 
 TSTypeInfo ts_interpreter_get_type_info(const char* name, uint32_t size, TSNodeObjectType category);
 

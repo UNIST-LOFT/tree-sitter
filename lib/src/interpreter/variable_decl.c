@@ -168,8 +168,11 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
             if (init.reference != NULL && copied > 0) {
                 memcpy(ref, init.reference, copied);
             }
+        } else if (init.type.category == TSNodeObjectTypeString) {
+            // String literal initializer
+            *(char**)ref = init.value.pointer;
         } else {
-            TS_PRINTF_ERROR("Unsupported initializer type for variable declaration.\n");
+            TS_PRINTF_ERROR("Unsupported initializer type for variable declaration: %d\n", init.type.category);
         }
         new_var.reference = ref;
 

@@ -94,6 +94,60 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
             TS_PRINTF_ERROR("Unsupported variable type for pointer declaration: %d\n", decl_type);
         }
     }
+    else if (strcmp(ts_node_type(rhs), "array_declarator") == 0) {
+        /*
+            `T name[N];`. The interpreter owns the storage, so the declaration *is* the array: its
+            reference are the elements, which is also what the pointer holds -- the shape a registered
+            array of the program has (MetaproVarTypeArray), and what tells the two apart when a variable
+            is read back (see ts_interpreter_load_variable).
+        */
+        TSNode name_node = ts_node_named_child(rhs, 0);
+        if (strcmp(ts_node_type(name_node), "identifier") != 0) {
+            // An array of arrays declares its rows through another array_declarator
+            TS_PRINTF_ERROR("Unsupported array declarator: %s\n", ts_node_type(name_node));
+        }
+        char* ident_name = ts_node_find_value(name_node);
+        if (ident_name == NULL) {
+            TS_PRINTF_ERROR("Failed to retrieve identifier name for variable declaration.\n");
+        }
+        if (ts_node_named_child_count(rhs) < 2) {
+            // `T name[]` has no length of its own; only an initializer would give it one
+            TS_PRINTF_ERROR("Array declaration without a length: %s\n", ident_name);
+        }
+        TSNodeObject length = ts_interpreter_simulate(ts_node_named_child(rhs, 1), var_count, vars,
+                                                      type_info_table);
+        int64_t count;
+        if (length.type.category == TSNodeObjectTypeUInt) {
+            count = (int64_t)length.value.uint64;
+        }
+        else if (length.type.category == TSNodeObjectTypeInt) {
+            count = length.value.int64;
+        }
+        else {
+            TS_PRINTF_ERROR("Unsupported length type in the declaration of %s\n", ident_name);
+        }
+        if (count <= 0) {
+            TS_PRINTF_ERROR("Array declaration of %s with a length of %" PRId64 "\n", ident_name, count);
+        }
+        uint64_t element_size = (decl_size != 0) ? decl_size : 1;
+        uint64_t bytes = (uint64_t)count * element_size;
+        void* ref = malloc(bytes);
+        if (ref == NULL) {
+            TS_PRINTF_ERROR("Cannot allocate %" PRIu64 " bytes for the declaration of %s\n", bytes,
+                            ident_name);
+        }
+        memset(ref, 0, bytes); // No initializer: the elements start at zero rather than at garbage
+
+        new_var.name = malloc(strlen(ident_name) + 1);
+        strcpy(new_var.name, ident_name);
+        new_var.node = rhs;
+        new_var.array_element_type = decl_type_info;
+        // As wide as all of its elements together, which is what a `sizeof` of it answers
+        new_var.type = ts_interpreter_get_pointer_type_info(decl_type_info);
+        new_var.type.size = (uint32_t)bytes;
+        new_var.value.pointer = ref;
+        new_var.reference = ref;
+    }
     else if (strcmp(ts_node_type(rhs), "init_declarator") == 0) {
         // primitive var with init
         TSNode name_node = ts_node_named_child(rhs, 0);
@@ -187,6 +241,12 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
         } else if (decl_type == TSNodeObjectTypeStruct) {
             new_var.value.pointer = ref; // A record is at its own address
         }
+    }
+
+    /* A declarator no branch above knew leaves the object as it was zeroed. Storing it would put a
+       nameless variable in the table, and the next name lookup would run strcmp() against NULL. */
+    if (new_var.name == NULL) {
+        TS_PRINTF_ERROR("Unsupported declarator in a variable declaration: %s\n", ts_node_type(rhs));
     }
 
     for (size_t i = 0; i < new_var_count; i++) {

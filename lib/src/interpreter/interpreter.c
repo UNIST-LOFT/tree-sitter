@@ -747,6 +747,9 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
     else if (strcmp(ts_node_type(node), "for_statement") == 0) {
         return ts_interpreter_for_stmt(node, var_count, vars, type_info_table);
     }
+    else if (strcmp(ts_node_type(node), "while_statement") == 0) {
+        return ts_interpreter_while_stmt(node, var_count, vars, type_info_table);
+    }
     /* Variable declaration */
     else if (strcmp(ts_node_type(node), "declaration") == 0) {
         return ts_interpreter_var_decl(node, var_count, vars, type_info_table);

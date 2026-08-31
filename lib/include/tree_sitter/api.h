@@ -1653,6 +1653,15 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
  */
 TSNodeObject ts_interpreter_for_stmt(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
 
+/**
+ * Create new TSNodeObject of the given while statement.
+ * 
+ * For condition statement, it internally calls `ts_interpreter_simulate` **before** each iteration.
+ * It iterates the body until the condition is false.
+ * If the condition is false initially, the body is never executed.
+ */
+TSNodeObject ts_interpreter_while_stmt(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table);
+
 /*************************************/
 /*  Section - Utilities (FreddyYJ)   */
 /*************************************/

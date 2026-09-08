@@ -1423,6 +1423,13 @@ typedef struct TSRecordInfo {
 extern TSRecordInfo* record_info_table;
 
 /**
+ * Look a struct/union up in record_info_table, trying the tag-prefixed spelling ("struct <name>",
+ * "union <name>") when the plain name misses. See the definition in src/interpreter/utils.c for
+ * why the two tables disagree on which spelling a struct is keyed by.
+ */
+TSRecordInfo* ts_interpreter_find_record(const char* name);
+
+/**
  * Runtime object for the TSNode used to 'execute' TSNode with runtime information.
  *
  * For example, if the name is "a" and the type is `TSNodeObjectTypeInt32`,

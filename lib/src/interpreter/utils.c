@@ -4,6 +4,40 @@
 /* Single definition of the struct info, filled by metapro at startup. See api.h */
 TSRecordInfo* record_info_table = NULL;
 
+/**
+ * Look a struct/union up in record_info_table by name, trying the tag-prefixed spelling too.
+ *
+ * A type resolved through type_info_table (e.g. the plain identifier branch of a variable
+ * declaration, see ts_interpreter_var_decl) can carry a typedef's bare name, e.g. "GetBitContext",
+ * while record_info_table is keyed by TypeInformation::getStructTypeName() on the C++ side, which
+ * always includes the tag keyword: "struct GetBitContext". A lookup that only tries the name as
+ * given therefore misses a record that exists under the other spelling. Tried in this order: the
+ * name as given (the common case, e.g. a struct pointer's descriptor, which is already prefixed),
+ * then "struct <name>", then "union <name>".
+ */
+TSRecordInfo* ts_interpreter_find_record(const char* name) {
+    if (name == NULL || name[0] == '\0') {
+        return NULL;
+    }
+    TSRecordInfo* found = NULL;
+    HASH_FIND_STR(record_info_table, name, found);
+    if (found != NULL) {
+        return found;
+    }
+    static const char* const prefixes[] = {"struct ", "union "};
+    for (size_t i = 0; i < sizeof(prefixes) / sizeof(prefixes[0]); i++) {
+        char prefixed[TS_MAX_TYPE_NAME_SIZE];
+        if (snprintf(prefixed, sizeof(prefixed), "%s%s", prefixes[i], name) >= (int)sizeof(prefixed)) {
+            continue; // Does not fit, so no such name is stored either
+        }
+        HASH_FIND_STR(record_info_table, prefixed, found);
+        if (found != NULL) {
+            return found;
+        }
+    }
+    return NULL;
+}
+
 /* Single definition of the function resolver, set by metapro at startup. See api.h */
 TSFunctionResolver ts_interpreter_resolve_function = NULL;
 

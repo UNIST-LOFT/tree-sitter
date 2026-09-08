@@ -99,8 +99,7 @@ TSNodeObject ts_interpreter_field(TSNode node, uint64_t var_count, TSNodeObject*
     // pointer is named by the type it points to, which is the struct holding the field
     char* record_name = (base_obj.type.category == TSNodeObjectTypeStruct) ? base_obj.type.name
                                                                           : base_obj.array_element_type.name;
-    TSRecordInfo* struct_type_info = NULL;
-    HASH_FIND_STR(record_info_table, record_name, struct_type_info);
+    TSRecordInfo* struct_type_info = ts_interpreter_find_record(record_name);
     if (struct_type_info == NULL) {
         TS_PRINTF_ERROR("Struct type not found in record_info_table: %s\n", record_name);
     }

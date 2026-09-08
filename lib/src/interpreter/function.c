@@ -10,32 +10,56 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
         TS_PRINTF_ERROR("Node is not a call_expression: %s\n", ts_node_type(node));
     }
     TSNodeObject obj = {0};
-    const char* func_name = ts_node_find_value(ts_node_named_child(node,0));
-    obj.name = malloc(strlen(func_name)+1);
-    strcpy(obj.name, func_name); // Copy function name
-    
-    /*
-        The function to call. A variable holding it comes first, so that a function pointer the program
-        passes around is called through the value it currently holds. Otherwise the host resolves the name
-        in the program itself, which is how a function whose address the program never takes is reached:
-        nothing registered it, so there is no variable to find.
-    */
+    TSNode callee_node = ts_node_named_child(node, 0);
+    const char* func_name = ts_node_find_value(callee_node);
+
     TSNodeObject found = {0};
     int exists = 0;
-    for (size_t i = 0; i < var_count; i++) {
-        if (strcmp(vars[i].name, obj.name) == 0) {
-            found = vars[i];
-            exists = 1;
-            break;
+
+    if (func_name != NULL) {
+        obj.name = malloc(strlen(func_name)+1);
+        strcpy(obj.name, func_name); // Copy function name
+
+        /*
+            The function to call. A variable holding it comes first, so that a function pointer the program
+            passes around is called through the value it currently holds. Otherwise the host resolves the name
+            in the program itself, which is how a function whose address the program never takes is reached:
+            nothing registered it, so there is no variable to find.
+        */
+        for (size_t i = 0; i < var_count; i++) {
+            if (strcmp(vars[i].name, obj.name) == 0) {
+                found = vars[i];
+                exists = 1;
+                break;
+            }
+        }
+        if (!exists && ts_interpreter_resolve_function != NULL) {
+            exists = ts_interpreter_resolve_function(obj.name, &found);
+        }
+        if (!exists) {
+            // Either the program has no such function, or it has one that nothing emitted, e.g. an unused
+            // static function
+            TS_PRINTF_ERROR("Function %s not found in variables and not in the program\n", obj.name);
         }
     }
-    if (!exists && ts_interpreter_resolve_function != NULL) {
-        exists = ts_interpreter_resolve_function(obj.name, &found);
-    }
-    if (!exists) {
-        // Either the program has no such function, or it has one that nothing emitted, e.g. an unused
-        // static function
-        TS_PRINTF_ERROR("Function %s not found in variables and not in the program\n", obj.name);
+    else {
+        /*
+            The callee is not a plain name but a computed expression -- most commonly a field
+            expression, e.g. `ctx->read_packet(...)`, where the function pointer lives in a struct
+            field rather than in a variable of its own (ts_node_find_value() only stores a value for
+            identifier-like leaves, so a field_expression, a parenthesized dereference `(*fp)(...)`,
+            etc. all read back NULL here). There being no name, the callee is evaluated directly, the
+            same way any other subexpression is; it errors out on its own (unsupported node type,
+            field not found, ...) if it cannot be.
+        */
+        found = ts_interpreter_simulate(callee_node, var_count, vars, type_info_table);
+        if (found.type.category == TSNodeObjectTypePointer) {
+            found.type.category = TSNodeObjectTypeFunctionPointer;
+        }
+        exists = 1;
+        const char* placeholder = "(computed function pointer)";
+        obj.name = malloc(strlen(placeholder)+1);
+        strcpy(obj.name, placeholder);
     }
 
     TSNodeObject args[10]; // Max 10 arguments

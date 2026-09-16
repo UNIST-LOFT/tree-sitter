@@ -7,9 +7,6 @@
 TSNodeObject new_variables[MAX_VARS];
 uint32_t new_var_count = 0;
 
-
-
-
 TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     /*
         The (category, width) of the declared type, and of what it points at when it is a pointer. A
@@ -248,6 +245,7 @@ TSNodeObject ts_interpreter_var_decl(TSNode node, uint64_t var_count, TSNodeObje
     if (new_var.name == NULL) {
         TS_PRINTF_ERROR("Unsupported declarator in a variable declaration: %s\n", ts_node_type(rhs));
     }
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_VAR_DECL]++;
 
     for (size_t i = 0; i < new_var_count; i++) {
         if (strcmp(new_var.name, new_variables[i].name) == 0) {

@@ -69,6 +69,7 @@ static TSNodeObject ts_interpreter_load_variable(TSNodeObject var) {
 TSNodeObject ts_interpreter_variable(TSNode node, uint64_t var_count, TSNodeObject* vars, TSTypeInfo* type_info_table) {
     char* node_name=ts_node_find_value(node);
     // Check newly declared variables first
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_VAR_EXPR]++;
     for (size_t i=0;i<new_var_count;i++) {
         if (strcmp(node_name, new_variables[i].name)==0) {
             return ts_interpreter_load_variable(new_variables[i]);
@@ -239,6 +240,7 @@ TSNodeObject ts_interpreter_field(TSNode node, uint64_t var_count, TSNodeObject*
             // Just set reference only for struct and general types
             break;
     }
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_FIELD_EXPR]++;
     return field_obj;
 }
 
@@ -311,6 +313,7 @@ TSNodeObject ts_interpreter_sizeof(TSNode node, uint64_t var_count, TSNodeObject
     size_obj.value.uint64 = size;
     size_obj.reference = malloc(sizeof(uint64_t));
     *((uint64_t*)size_obj.reference) = size;
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_SIZEOF]++;
     return size_obj;
 }
 
@@ -340,6 +343,7 @@ TSNodeObject ts_interpreter_literal(TSNode node) {
     obj.name=ts_node_find_value(node);
     obj.node=node;
     obj.array_element_type.size = 0;
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_LITERAL]++;
 
     if (strcmp(ts_node_type(node),"char_literal")==0) {
         obj.type = ts_interpreter_get_type_info("char", sizeof(char), TSNodeObjectTypeInt);
@@ -426,6 +430,7 @@ TSNodeObject ts_interpreter_casting(TSNode node, uint64_t var_count, TSNodeObjec
         // What the cast pointer points at, which is what subscripting and stepping it move by
         obj.array_element_type = element_type_info;
     }
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_CAST]++;
     return obj;
 }
 
@@ -533,6 +538,7 @@ TSNodeObject ts_interpreter_subscript(TSNode node, uint64_t var_count, TSNodeObj
     else {
         TS_PRINTF_ERROR("Unsupported array subscript type: %d\n", base_obj.array_element_type.category);
     }
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_SUBSCRIPT]++;
     return obj;
 }
 
@@ -570,6 +576,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
             sizeof(char)*(strlen(ts_node_find_value(node))+1), TSNodeObjectTypeString);
         obj.reference=&value;
         obj.value.pointer=value;
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_LITERAL]++;
         return obj;
     }
     else if (strcmp(ts_node_type(node),"true")==0) {
@@ -578,6 +585,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("unsigned int", sizeof(unsigned int), TSNodeObjectTypeUInt);
         obj.value.uint64=1;
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_LITERAL]++;
         return obj;
     }
     else if (strcmp(ts_node_type(node),"false")==0) {
@@ -586,6 +594,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("unsigned int", sizeof(unsigned int), TSNodeObjectTypeUInt);
         obj.value.uint64=0;
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_LITERAL]++;
         return obj;
     }
     else if (strcmp(ts_node_type(node), "null")==0) {
@@ -594,6 +603,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         obj.node=node;
         obj.type = ts_interpreter_get_type_info("void*", sizeof(void*), TSNodeObjectTypePointer);
         obj.value.pointer=NULL;
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_LITERAL]++;
         return obj;
     }
     else if (strcmp(ts_node_type(node), "cast_expression") == 0) {
@@ -611,6 +621,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         else {
             obj = ts_interpreter_simulate(ts_node_named_child(node, 2), var_count, vars, type_info_table);
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_TERNARY]++;
         return obj;
     }
     else if (strcmp(ts_node_type(node),"call_expression")==0) {
@@ -646,6 +657,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         if (!found || obj.type.category != TSNodeObjectTypeJmpBuf) {
             TS_PRINTF_ERROR("Continue statement found but no corresponding jmp_buf in vars\n");
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_FLOW_CONTROL]++;
         longjmp(*(obj.value.jmpbuf), 1);
     }
     else if (strcmp(ts_node_type(node), "break_statement")==0) {
@@ -661,6 +673,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         if (!found || obj.type.category != TSNodeObjectTypeJmpBuf) {
             TS_PRINTF_ERROR("Break statement found but no corresponding jmp_buf in vars\n");
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_FLOW_CONTROL]++;
         longjmp(*(obj.value.jmpbuf), 1);
     }
     else if (strcmp(ts_node_type(node), "goto_statement")==0) {
@@ -679,6 +692,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
         if (!found || obj.type.category != TSNodeObjectTypeJmpBuf) {
             TS_PRINTF_ERROR("Goto statement found but no corresponding jmp_buf in vars\n");
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_FLOW_CONTROL]++;
         longjmp(*(obj.value.jmpbuf), 1);
     }
     else if (strcmp(ts_node_type(node), "return_statement")==0) {
@@ -704,6 +718,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
                     vars, type_info_table);
             ts_interpreter_return_value_id = return_id;
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_RETURN]++;
         longjmp(*(obj.value.jmpbuf), (int)return_id);
     }
     else if (strcmp(ts_node_type(node), "if_statement") == 0) {
@@ -722,6 +737,7 @@ TSNodeObject ts_interpreter_simulate(TSNode node, uint64_t var_count, TSNodeObje
             is_then = 1;
         }
         
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_IF]++;
         if (is_then) {
             // Then branch
             return ts_interpreter_simulate(ts_node_named_child(node, 1), var_count, vars, type_info_table);

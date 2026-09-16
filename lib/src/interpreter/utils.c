@@ -1,8 +1,59 @@
 #include "tree_sitter/api.h"
 #include <string.h>
+#include <inttypes.h>
 
 /* Single definition of the struct info, filled by metapro at startup. See api.h */
 TSRecordInfo* record_info_table = NULL;
+
+uint64_t ts_node_stmt_expr_counter[TS_NODE_RETURN + 1];
+
+void ts_node_init_stmt_expr_counter() {
+    for (int i = 0; i <= TS_NODE_RETURN; i++) {
+        ts_node_stmt_expr_counter[i] = 0;
+    }
+}
+
+static char* counter_name(enum TSNodeStmtExprType type) {
+    switch (type) {
+        case TS_NODE_BINARY_ARITH: return "binary_arith";
+        case TS_NODE_BINARY_COND: return "binary_cond";
+        case TS_NODE_BINARY_RELATIONAL: return "binary_relational";
+        case TS_NODE_BINARY_BIT: return "binary_bit";
+        case TS_NODE_UNARY: return "unary";
+        case TS_NODE_TERNARY: return "ternary";
+        case TS_NODE_FUNCTION_CALL: return "function_call";
+        case TS_NODE_VAR_EXPR: return "var_expr";
+        case TS_NODE_FIELD_EXPR: return "field_expr";
+        case TS_NODE_SIZEOF: return "sizeof";
+        case TS_NODE_LITERAL: return "literal";
+        case TS_NODE_CAST: return "cast";
+        case TS_NODE_SUBSCRIPT: return "subscript";
+        case TS_NODE_ASSIGN: return "assign";
+        case TS_NODE_IF: return "if";
+        case TS_NODE_FOR: return "for";
+        case TS_NODE_WHILE: return "while";
+        case TS_NODE_VAR_DECL: return "var_decl";
+        case TS_NODE_FLOW_CONTROL: return "flow_control";
+        case TS_NODE_RETURN: return "return";
+        default: return "UNKNOWN";
+    }
+}
+
+void ts_node_print_stmt_expr_counter() {
+    const char* file_path = TS_NODE_COUNT_STMT_EXPR;
+    if (!file_path) return;
+
+    FILE* file = fopen(file_path, "w");
+    if (!file) return;
+
+    fprintf(file, "{\n");
+    for (int i = 0; i <= TS_NODE_RETURN; i++) {
+        fprintf(file, "  \"%s\": %" PRIu64 "%s\n", counter_name(i), ts_node_stmt_expr_counter[i], i == TS_NODE_RETURN ? "" : ",");
+    }
+    fprintf(file, "}\n");
+
+    fclose(file);
+}
 
 /**
  * Look a struct/union up in record_info_table by name, trying the tag-prefixed spelling too.

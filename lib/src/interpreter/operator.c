@@ -228,6 +228,7 @@ TSNodeObject ts_interpreter_unary(TSNode node, uint64_t var_count, TSNodeObject*
     else {
         TS_PRINTF_ERROR("Unknown unary operator: %s\n", op);
     }
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_UNARY]++;
 
     return result;
 }

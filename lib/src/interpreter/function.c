@@ -208,6 +208,7 @@ TSNodeObject ts_interpreter_function(TSNode node, uint64_t var_count, TSNodeObje
         default:
             TS_PRINTF_ERROR("Unsupported function return type in call: %d\n", obj.type.category);
     }
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_FUNCTION_CALL]++;
 
     return obj;
 }

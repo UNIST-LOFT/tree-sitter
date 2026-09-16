@@ -296,5 +296,9 @@ TSNodeObject ts_interpreter_assign(TSNode node, uint64_t var_count, TSNodeObject
     else {
         TS_PRINTF_ERROR("Unsupported assignment operator: %s\n", op);
     }
+
+    if (TS_NODE_COUNT_STMT_EXPR) {
+        ts_node_stmt_expr_counter[TS_NODE_ASSIGN]++;
+    }
     return left_obj;
 }

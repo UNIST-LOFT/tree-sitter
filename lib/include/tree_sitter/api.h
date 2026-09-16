@@ -15,6 +15,7 @@ extern "C" {
 #include <stdio.h>
 #include <setjmp.h>
 #include "uthash/uthash.h" // Hash tables of the runtime information, e.g. TSTypeInfo
+#include <inttypes.h>
 
 #define TREE_SITTER_MAJOR_VERSION 21
 
@@ -1682,6 +1683,61 @@ TSNodeObject ts_interpreter_while_stmt(TSNode node, uint64_t var_count, TSNodeOb
     fprintf(stderr, "%s:%d: ERROR: " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
     abort(); \
 } while (0)
+
+/**
+ * Enum to represent each expr/stmt.
+ * 
+ * Used to count the usage of each type.
+ */
+enum TSNodeStmtExprType {
+  TS_NODE_BINARY_ARITH,
+  TS_NODE_BINARY_COND,
+  TS_NODE_BINARY_RELATIONAL,
+  TS_NODE_BINARY_BIT,
+  TS_NODE_UNARY,
+  TS_NODE_TERNARY,
+  TS_NODE_FUNCTION_CALL,
+  TS_NODE_VAR_EXPR,
+  TS_NODE_FIELD_EXPR,
+  TS_NODE_SIZEOF,
+  TS_NODE_LITERAL,
+  TS_NODE_CAST,
+  TS_NODE_SUBSCRIPT,
+  TS_NODE_ASSIGN,
+  TS_NODE_IF,
+  TS_NODE_FOR,
+  TS_NODE_WHILE,
+  TS_NODE_VAR_DECL,
+  TS_NODE_FLOW_CONTROL,
+  TS_NODE_RETURN,
+};
+
+// Defined once in interpreter/utils.c (alongside record_info_table, the same pattern); this
+// header only declares it (`extern`) so every
+// translation unit that includes api.h -- and this header is pulled in by nearly every .c
+// file in lib/src/ -- shares the *same* counter instead of each linking in its own copy
+// (which is what defining the array/functions here caused: a "multiple definition" link
+// error, since a non-`static` global counts as an external definition in every TU that
+// compiles this header). Keeping exactly one definition also means the counts are accurate
+// across the whole codebase, not just whichever TU happens to call
+// ts_node_print_stmt_expr_counter.
+extern uint64_t ts_node_stmt_expr_counter[TS_NODE_RETURN + 1];
+
+#define TS_NODE_COUNT_STMT_EXPR getenv("TS_NODE_COUNT_STMT_EXPR")
+
+/**
+ * Initialize the statement/expression counter array.
+ *
+ * Sets all counters to zero.
+ */
+void ts_node_init_stmt_expr_counter();
+
+/**
+ * Store the stmt/expr counter to specified json file.
+ *
+ * The file path is specified by the environment variable `TS_NODE_COUNT_STMT_EXPR`.
+ */
+void ts_node_print_stmt_expr_counter();
 
 #ifdef __cplusplus
 }

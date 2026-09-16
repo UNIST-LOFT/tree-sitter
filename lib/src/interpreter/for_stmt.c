@@ -45,5 +45,6 @@ TSNodeObject ts_interpreter_for_stmt(TSNode node, uint64_t var_count, TSNodeObje
     result.name = "for_stmt";
     result.node = node;
     result.type = ts_interpreter_get_type_info("void", 0, TSNodeObjectTypeUnknown);
+    if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_FOR]++;
     return result;
 }

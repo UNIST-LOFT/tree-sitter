@@ -436,6 +436,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_ARITH_ADD(+, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_ARITH]++;
     }
     else if (strcmp(op,"-")==0) {
         // Suppress warning about ptr - ptr. Some codes subtract between two ptrs to get the offset or length.
@@ -444,21 +445,25 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_ARITH_SUB(-, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_ARITH]++;
     }
     else if (strcmp(op,"*")==0) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_ARITH_OP(*, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_ARITH]++;
     }
     else if (strcmp(op,"/")==0) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_ARITH_OP(/, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_ARITH]++;
     }
     else if (strcmp(op,"%")==0) {
         HANDLE_ARITH_NO_DOUBLE(%, obj1, obj2, result);
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_ARITH]++;
     }
 
     /* Comparison */
@@ -468,6 +473,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_COND(==, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_COND]++;
     }
     else if (strcmp(op,"!=")==0) {
         result.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -475,6 +481,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_COND(!=, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_COND]++;
     }
     else if (strcmp(op,"<")==0) {
         result.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -482,6 +489,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_COND(<, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_COND]++;
     }
     else if (strcmp(op,">")==0) {
         result.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -489,6 +497,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_COND(>, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_COND]++;
     }
     else if (strcmp(op,"<=")==0) {
         result.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -496,6 +505,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_COND(<=, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_COND]++;
     }
     else if (strcmp(op,">=")==0) {
         result.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -503,6 +513,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
         HANDLE_COND(>=, obj1, obj2, result);
 #pragma GCC diagnostic pop
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_COND]++;
     }
 
     /* Relational */
@@ -572,6 +583,7 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             default:
                 TS_PRINTF_ERROR("Unknown type in logical and: %d\n", obj1.type.category);
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_RELATIONAL]++;
     }
     else if (strcmp(op,"||")==0) {
         result.type = ts_interpreter_get_type_info("int", sizeof(int), TSNodeObjectTypeInt);
@@ -639,23 +651,29 @@ TSNodeObject ts_interpreter_binary(TSNode node, uint64_t var_count, TSNodeObject
             default:
                 TS_PRINTF_ERROR("Unknown type in logical or: %d\n", obj1.type.category);
         }
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_RELATIONAL]++;
     }
 
     /* Bit-wise */
     else if (strcmp(op, "&") == 0) {
         HANDLE_BITWISE(&, obj1, obj2, result);
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_BIT]++;
     }
     else if (strcmp(op, "|") == 0) {
         HANDLE_BITWISE(|, obj1, obj2, result);
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_BIT]++;
     }
     else if (strcmp(op, "^") == 0) {
         HANDLE_BITWISE(^, obj1, obj2, result);
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_BIT]++;
     }
     else if (strcmp(op, "<<") == 0) {
         HANDLE_BITWISE(<<, obj1, obj2, result);
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_BIT]++;
     }
     else if (strcmp(op, ">>") == 0) {
         HANDLE_BITWISE(>>, obj1, obj2, result);
+        if (TS_NODE_COUNT_STMT_EXPR) ts_node_stmt_expr_counter[TS_NODE_BINARY_BIT]++;
     }
 
     else {
